@@ -91,7 +91,7 @@ func DumpFileEntry(fileEntry FileEntry) {
 	fmt.Printf("\n")
 }
 
-func dumpVolumeHeader(volumeHeader VolumeHeader) {
+func DumpVolumeHeader(volumeHeader VolumeHeader) {
 	fmt.Printf("Next block: %d\n", volumeHeader.NextBlock)
 	fmt.Printf("Volume name: %s\n", volumeHeader.VolumeName)
 	fmt.Printf("Creation time: %d-%s-%d %02d:%02d\n", volumeHeader.CreationTime.Year(), volumeHeader.CreationTime.Month(), volumeHeader.CreationTime.Day(), volumeHeader.CreationTime.Hour(), volumeHeader.CreationTime.Minute())
@@ -102,4 +102,21 @@ func dumpVolumeHeader(volumeHeader VolumeHeader) {
 	fmt.Printf("File count: %d\n", volumeHeader.ActiveFileCount)
 	fmt.Printf("Bitmap starting block: %d\n", volumeHeader.BitmapStartBlock)
 	fmt.Printf("Total blocks: %d\n", volumeHeader.TotalBlocks)
+}
+
+func DumpBlock(buffer []byte) {
+	for i := 0; i < len(buffer); i += 16 {
+		for j := i; j < i+16; j++ {
+			fmt.Printf("%02X ", buffer[j])
+		}
+		for j := i; j < i+16; j++ {
+			c := buffer[j] & 127
+			if c >= 32 {
+				fmt.Printf("%c", c)
+			} else {
+				fmt.Printf(".")
+			}
+		}
+		fmt.Printf("\n")
+	}
 }

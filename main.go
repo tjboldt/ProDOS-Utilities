@@ -9,9 +9,10 @@ import (
 
 func main() {
 	if len(os.Args) < 2 || len(os.Args) > 3 {
-		fmt.Printf("Usage:")
-		fmt.Printf("  ProDOS-Utilities DRIVE_IMAGE")
-		fmt.Printf("  ProDOS-Utilities DRIVE_IMAGE /FULL_PATH")
+		fmt.Printf("Usage:\n")
+		fmt.Printf("  ProDOS-Utilities DRIVE_IMAGE\n")
+		fmt.Printf("  ProDOS-Utilities DRIVE_IMAGE /FULL_PATH\n")
+		os.Exit(1)
 	}
 
 	fileName := os.Args[1]
@@ -21,8 +22,13 @@ func main() {
 		pathName = os.Args[2]
 	}
 
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+	if err != nil {
+		os.Exit(1)
+	}
+
 	// empty path or volume name means read root directory
-	volumeHeader, fileEntries := prodos.ReadDirectory(fileName, pathName)
+	volumeHeader, fileEntries := prodos.ReadDirectory(file, pathName)
 
 	fmt.Printf("VOLUME: %s\n\n", volumeHeader.VolumeName)
 	fmt.Printf("NAME           TYPE  BLOCKS  MODIFIED          CREATED            ENDFILE  SUBTYPE\n\n")

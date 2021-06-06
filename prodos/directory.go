@@ -46,15 +46,10 @@ type FileEntry struct {
 	ModifiedTime  time.Time
 }
 
-func ReadDirectory(driveFileName string, path string) (VolumeHeader, []FileEntry) {
-	file, err := os.OpenFile(driveFileName, os.O_RDWR, 0755)
-	if err != nil {
-		return VolumeHeader{}, nil
-	}
-
+func ReadDirectory(file *os.File, path string) (VolumeHeader, []FileEntry) {
 	buffer := ReadBlock(file, 2)
 
-	volumeHeader := ParseVolumeHeader(buffer)
+	volumeHeader := parseVolumeHeader(buffer)
 	//dumpVolumeHeader(volumeHeader)
 
 	if len(path) == 0 {
@@ -74,7 +69,7 @@ func getFileEntriesInDirectory(file *os.File, blockNumber int, currentPath int, 
 
 	buffer := ReadBlock(file, blockNumber)
 
-	directoryHeader := ParseDirectoryHeader(buffer)
+	directoryHeader := parseDirectoryHeader(buffer)
 
 	fileEntries := make([]FileEntry, directoryHeader.ActiveFileCount)
 	entryOffset := 43 // start at offset after header
@@ -149,7 +144,7 @@ func parseFileEntry(buffer []byte) FileEntry {
 	return fileEntry
 }
 
-func ParseVolumeHeader(buffer []byte) VolumeHeader {
+func parseVolumeHeader(buffer []byte) VolumeHeader {
 	nextBlock := int(buffer[2]) + int(buffer[3])*256
 	filenameLength := buffer[4] & 15
 	volumeName := string(buffer[5 : filenameLength+5])
@@ -179,7 +174,7 @@ func ParseVolumeHeader(buffer []byte) VolumeHeader {
 	return volumeHeader
 }
 
-func ParseDirectoryHeader(buffer []byte) DirectoryHeader {
+func parseDirectoryHeader(buffer []byte) DirectoryHeader {
 	nextBlock := int(buffer[2]) + int(buffer[3])*256
 	filenameLength := buffer[4] & 15
 	name := string(buffer[5 : filenameLength+5])
