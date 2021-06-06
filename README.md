@@ -1,1 +1,2 @@
 # ProDOS-Utilities
+This project is just starting. It will eventually be a library in Golang to read and write files on a ProDOS hard drive image plus a command line interface. So far it is an experiment.
