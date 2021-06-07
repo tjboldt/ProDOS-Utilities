@@ -120,3 +120,21 @@ func DumpBlock(buffer []byte) {
 		fmt.Printf("\n")
 	}
 }
+
+func DumpDirectory(volumeHeader VolumeHeader, fileEntries []FileEntry) {
+	fmt.Printf("VOLUME: %s\n\n", volumeHeader.VolumeName)
+	fmt.Printf("NAME           TYPE  BLOCKS  MODIFIED          CREATED            ENDFILE  SUBTYPE\n\n")
+
+	for i := 0; i < len(fileEntries); i++ {
+		fmt.Printf("%-15s %s %7d  %s %s %8d %8d\n",
+			fileEntries[i].FileName,
+			FileTypeToString(fileEntries[i].FileType),
+			fileEntries[i].BlocksUsed,
+			TimeToString(fileEntries[i].ModifiedTime),
+			TimeToString(fileEntries[i].CreationTime),
+			fileEntries[i].EndOfFile,
+			fileEntries[i].AuxType,
+		)
+	}
+	fmt.Printf("\n")
+}

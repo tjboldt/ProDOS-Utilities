@@ -1,7 +1,6 @@
 package prodos
 
 import (
-	"fmt"
 	"os"
 	"strings"
 )
@@ -20,7 +19,7 @@ func LoadFile(file *os.File, path string) []byte {
 	directory := directoryBuilder.String()
 	fileName := paths[len(paths)-1]
 
-	volumeHeader, fileEntries := ReadDirectory(file, directory)
+	_, fileEntries := ReadDirectory(file, directory)
 
 	if fileEntries == nil {
 		return nil
@@ -33,12 +32,6 @@ func LoadFile(file *os.File, path string) []byte {
 			fileEntry = fileEntries[i]
 		}
 	}
-
-	DumpVolumeHeader(volumeHeader)
-
-	fmt.Println()
-
-	DumpFileEntry(fileEntry)
 
 	switch fileEntry.StorageType {
 	case StorageSeedling:
