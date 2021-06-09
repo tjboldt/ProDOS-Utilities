@@ -1,7 +1,6 @@
 package prodos
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -21,8 +20,6 @@ TIME:  |    hour       | |    minute     |
 */
 
 func DateTimeToProDOS(dateTime time.Time) []byte {
-	fmt.Printf("Sending date/time...\n")
-
 	year := dateTime.Year() % 100
 	month := dateTime.Month()
 	day := dateTime.Day()
