@@ -82,27 +82,55 @@ func MarkBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
 	bitToChange := blockNumber % 8
 	byteToChange := blockNumber / 8
 
-	byteToWrite := 0b11111111
+	byteToAnd := 0b11111111
 
 	switch bitToChange {
 	case 0:
-		byteToWrite = 0b01111111
+		byteToAnd = 0b01111111
 	case 1:
-		byteToWrite = 0b10111111
+		byteToAnd = 0b10111111
 	case 2:
-		byteToWrite = 0b11011111
+		byteToAnd = 0b11011111
 	case 3:
-		byteToWrite = 0b11101111
+		byteToAnd = 0b11101111
 	case 4:
-		byteToWrite = 0b11110111
+		byteToAnd = 0b11110111
 	case 5:
-		byteToWrite = 0b11111011
+		byteToAnd = 0b11111011
 	case 6:
-		byteToWrite = 0b11111101
+		byteToAnd = 0b11111101
 	case 7:
-		byteToWrite = 0b11111110
+		byteToAnd = 0b11111110
 	}
 
 	//fmt.Printf("blockNumber: $%04X byteToWrite: 0b%08b volumeBitmap: $%02X byteToChange: $%04X\n", blockNumber, byteToWrite, volumeBitmap[byteToChange], byteToChange)
-	volumeBitmap[byteToChange] &= byte(byteToWrite)
+	volumeBitmap[byteToChange] &= byte(byteToAnd)
+}
+
+func FreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
+	bitToChange := blockNumber % 8
+	byteToChange := blockNumber / 8
+
+	byteToOr := 0b00000000
+
+	switch bitToChange {
+	case 0:
+		byteToOr = 0b10000000
+	case 1:
+		byteToOr = 0b01000000
+	case 2:
+		byteToOr = 0b00100000
+	case 3:
+		byteToOr = 0b00010000
+	case 4:
+		byteToOr = 0b00001000
+	case 5:
+		byteToOr = 0b00000100
+	case 6:
+		byteToOr = 0b00000010
+	case 7:
+		byteToOr = 0b00000001
+	}
+
+	volumeBitmap[byteToChange] |= byte(byteToOr)
 }

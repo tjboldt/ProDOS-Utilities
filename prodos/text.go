@@ -85,9 +85,10 @@ func DumpFileEntry(fileEntry FileEntry) {
 	fmt.Printf("AuxType: %04X\n", fileEntry.AuxType)
 	fmt.Printf("EOF: %06X\n", fileEntry.EndOfFile)
 	fmt.Printf("Blocks used: %04X\n", fileEntry.BlocksUsed)
-	fmt.Printf("Starting block: %04X\n", fileEntry.StartingBlock)
+	fmt.Printf("Starting block: %04X\n", fileEntry.KeyPointer)
 	fmt.Printf("File type: %02X\n", fileEntry.FileType)
 	fmt.Printf("Storage type: %02X\n", fileEntry.StorageType)
+	fmt.Printf("Header pointer: %04X\n", fileEntry.HeaderPointer)
 	fmt.Printf("\n")
 }
 
@@ -95,8 +96,8 @@ func DumpVolumeHeader(volumeHeader VolumeHeader) {
 	fmt.Printf("Next block: %d\n", volumeHeader.NextBlock)
 	fmt.Printf("Volume name: %s\n", volumeHeader.VolumeName)
 	fmt.Printf("Creation time: %d-%s-%d %02d:%02d\n", volumeHeader.CreationTime.Year(), volumeHeader.CreationTime.Month(), volumeHeader.CreationTime.Day(), volumeHeader.CreationTime.Hour(), volumeHeader.CreationTime.Minute())
-	// fmt.Printf("ProDOS version (should be 0): %d\n", volumeHeader.Version)
-	// fmt.Printf("ProDOS mininum version (should be 0): %d\n", minVersion)
+	fmt.Printf("ProDOS version (should be 0): %d\n", volumeHeader.Version)
+	fmt.Printf("ProDOS mininum version (should be 0): %d\n", volumeHeader.MinVersion)
 	fmt.Printf("Entry length (should be 39): %d\n", volumeHeader.EntryLength)
 	fmt.Printf("Entries per block (should be 13): %d\n", volumeHeader.EntriesPerBlock)
 	fmt.Printf("File count: %d\n", volumeHeader.ActiveFileCount)

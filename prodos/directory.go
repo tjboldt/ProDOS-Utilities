@@ -16,6 +16,8 @@ type VolumeHeader struct {
 	NextBlock        int
 	EntryLength      int
 	EntriesPerBlock  int
+	MinVersion       int
+	Version          int
 }
 
 type DirectoryHeader struct {
@@ -34,16 +36,21 @@ const (
 )
 
 type FileEntry struct {
-	StorageType   int
-	FileName      string
-	FileType      int
-	CreationTime  time.Time
-	StartingBlock int
-	BlocksUsed    int
-	EndOfFile     int
-	Access        int
-	AuxType       int
-	ModifiedTime  time.Time
+	StorageType     int
+	FileName        string
+	FileType        int
+	CreationTime    time.Time
+	KeyPointer      int
+	Version         int
+	MinVersion      int
+	BlocksUsed      int
+	EndOfFile       int
+	Access          int
+	AuxType         int
+	ModifiedTime    time.Time
+	HeaderPointer   int
+	DirectoryBlock  int
+	DirectoryOffset int
 }
 
 func ReadDirectory(file *os.File, path string) (VolumeHeader, []FileEntry) {
@@ -95,14 +102,14 @@ func getFileEntriesInDirectory(file *os.File, blockNumber int, currentPath int, 
 			buffer = ReadBlock(file, nextBlock)
 			nextBlock = int(buffer[2]) + int(buffer[3])*256
 		}
-		fileEntry := parseFileEntry(buffer[entryOffset : entryOffset+40])
+		fileEntry := parseFileEntry(buffer[entryOffset:entryOffset+40], blockNumber, entryOffset)
 		//DumpFileEntry(fileEntry)
 
 		if fileEntry.StorageType != StorageDeleted {
 			if matchedDirectory {
 				fileEntries[activeEntries] = fileEntry
 			} else if !matchedDirectory && fileEntry.FileType == 15 && paths[currentPath+1] == fileEntry.FileName {
-				return getFileEntriesInDirectory(file, fileEntry.StartingBlock, currentPath+1, paths)
+				return getFileEntriesInDirectory(file, fileEntry.KeyPointer, currentPath+1, paths)
 			}
 			activeEntries++
 			if matchedDirectory && activeEntries == directoryHeader.ActiveFileCount {
@@ -115,7 +122,7 @@ func getFileEntriesInDirectory(file *os.File, blockNumber int, currentPath int, 
 	}
 }
 
-func parseFileEntry(buffer []byte) FileEntry {
+func parseFileEntry(buffer []byte, blockNumber int, entryOffset int) FileEntry {
 	storageType := int(buffer[0] >> 4)
 	fileNameLength := int(buffer[0] & 15)
 	fileName := string(buffer[1 : fileNameLength+1])
@@ -124,24 +131,68 @@ func parseFileEntry(buffer []byte) FileEntry {
 	blocksUsed := int(buffer[19]) + int(buffer[20])*256
 	endOfFile := int(buffer[21]) + int(buffer[22])*256 + int(buffer[23])*65536
 	creationTime := DateTimeFromProDOS(buffer[24:28])
+	version := int(buffer[28])
+	minVersion := int(buffer[29])
 	access := int(buffer[30])
 	auxType := int(buffer[31]) + int(buffer[32])*256
 	modifiedTime := DateTimeFromProDOS((buffer[33:37]))
+	headerPointer := int(buffer[0x25]) + int(buffer[0x26])*256
 
 	fileEntry := FileEntry{
-		StorageType:   storageType,
-		FileName:      fileName,
-		FileType:      fileType,
-		CreationTime:  creationTime,
-		StartingBlock: startingBlock,
-		BlocksUsed:    blocksUsed,
-		EndOfFile:     endOfFile,
-		Access:        access,
-		AuxType:       auxType,
-		ModifiedTime:  modifiedTime,
+		StorageType:     storageType,
+		FileName:        fileName,
+		FileType:        fileType,
+		CreationTime:    creationTime,
+		Version:         version,
+		MinVersion:      minVersion,
+		KeyPointer:      startingBlock,
+		BlocksUsed:      blocksUsed,
+		EndOfFile:       endOfFile,
+		Access:          access,
+		AuxType:         auxType,
+		ModifiedTime:    modifiedTime,
+		HeaderPointer:   headerPointer,
+		DirectoryBlock:  blockNumber,
+		DirectoryOffset: entryOffset,
 	}
 
 	return fileEntry
+}
+
+func writeFileEntry(file *os.File, fileEntry FileEntry) {
+	buffer := make([]byte, 39)
+	buffer[0] = byte(fileEntry.StorageType)<<4 + byte(len(fileEntry.FileName))
+	for i := 0; i < len(fileEntry.FileName); i++ {
+		buffer[i+1] = fileEntry.FileName[i]
+	}
+	buffer[0x10] = byte(fileEntry.FileType)
+	buffer[0x11] = byte(fileEntry.KeyPointer & 0xFF)
+	buffer[0x12] = byte(fileEntry.KeyPointer >> 8)
+	buffer[0x13] = byte(fileEntry.BlocksUsed & 0xFF)
+	buffer[0x14] = byte(fileEntry.BlocksUsed >> 8)
+	buffer[0x15] = byte(fileEntry.EndOfFile & 0x0000FF)
+	buffer[0x16] = byte(fileEntry.EndOfFile & 0x00FF00 >> 8)
+	buffer[0x17] = byte(fileEntry.EndOfFile & 0xFF0000 >> 16)
+	creationTime := DateTimeToProDOS(fileEntry.CreationTime)
+	for i := 0; i < 4; i++ {
+		buffer[0x18+i] = creationTime[i]
+	}
+	buffer[0x1C] = byte(fileEntry.Version)
+	buffer[0x1D] = byte(fileEntry.MinVersion)
+	buffer[0x1E] = byte(fileEntry.Access)
+	buffer[0x1F] = byte(fileEntry.AuxType & 0x00FF)
+	buffer[0x20] = byte(fileEntry.AuxType >> 8)
+	modifiedTime := DateTimeToProDOS(fileEntry.CreationTime)
+	for i := 0; i < 4; i++ {
+		buffer[0x21+i] = modifiedTime[i]
+	}
+	buffer[0x25] = byte(fileEntry.HeaderPointer & 0x00FF)
+	buffer[0x26] = byte(fileEntry.HeaderPointer >> 8)
+
+	_, err := file.WriteAt(buffer, int64(fileEntry.DirectoryBlock*512+fileEntry.DirectoryOffset))
+	if err != nil {
+
+	}
 }
 
 func parseVolumeHeader(buffer []byte) VolumeHeader {
@@ -170,15 +221,17 @@ func parseVolumeHeader(buffer []byte) VolumeHeader {
 		NextBlock:        nextBlock,
 		EntriesPerBlock:  entriesPerBlock,
 		EntryLength:      entryLength,
+		MinVersion:       minVersion,
+		Version:          version,
 	}
 	return volumeHeader
 }
 
 func parseDirectoryHeader(buffer []byte) DirectoryHeader {
-	nextBlock := int(buffer[2]) + int(buffer[3])*256
-	filenameLength := buffer[4] & 15
-	name := string(buffer[5 : filenameLength+5])
-	fileCount := int(buffer[37]) + int(buffer[38])*256
+	nextBlock := int(buffer[0x02]) + int(buffer[0x03])*256
+	filenameLength := buffer[0x04] & 15
+	name := string(buffer[0x05 : filenameLength+0x05])
+	fileCount := int(buffer[0x25]) + int(buffer[0x26])*256
 
 	directoryEntry := DirectoryHeader{
 		NextBlock:       nextBlock,
@@ -187,4 +240,17 @@ func parseDirectoryHeader(buffer []byte) DirectoryHeader {
 	}
 
 	return directoryEntry
+}
+
+func writeDirectoryHeader(file *os.File, directoryHeader DirectoryHeader, blockNumber int) {
+	buffer := ReadBlock(file, blockNumber)
+	buffer[0x02] = byte(directoryHeader.NextBlock & 0x00FF)
+	buffer[0x03] = byte(directoryHeader.NextBlock >> 8)
+	buffer[0x04] = buffer[0x04] | byte(len(directoryHeader.Name))
+	for i := 0; i < len(directoryHeader.Name); i++ {
+		buffer[0x05+i] = directoryHeader.Name[i]
+	}
+	buffer[0x25] = byte(directoryHeader.ActiveFileCount & 0x00FF)
+	buffer[0x26] = byte(directoryHeader.ActiveFileCount >> 8)
+	file.WriteAt(buffer, int64(blockNumber*512))
 }

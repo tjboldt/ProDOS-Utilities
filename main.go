@@ -18,7 +18,7 @@ func main() {
 	var volumeName string
 	flag.StringVar(&fileName, "driveimage", "", "A ProDOS format drive image")
 	flag.StringVar(&pathName, "path", "", "Path name in ProDOS drive image")
-	flag.StringVar(&command, "command", "ls", "Command to execute: ls, get, put, volumebitmap, readblock, writeblock, create")
+	flag.StringVar(&command, "command", "ls", "Command to execute: ls, get, put, volumebitmap, readblock, writeblock, createvolume, delete")
 	flag.StringVar(&outFileName, "outfile", "export.bin", "Name of file to write")
 	flag.IntVar(&volumeSize, "volumesize", 65535, "Number of blocks to create the volume with")
 	flag.StringVar(&volumeName, "volumename", "NO.NAME", "Specifiy a name for the volume from 1 to 15 characters")
@@ -71,9 +71,14 @@ func main() {
 			os.Exit(1)
 		}
 		outFile.Write(block)
-	case "create":
-		//fmt.Println("Create volume")
+	case "createvolume":
 		prodos.CreateVolume(fileName, volumeName, volumeSize)
+	case "delete":
+		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+		if err != nil {
+			os.Exit(1)
+		}
+		prodos.DeleteFile(file, pathName)
 	default:
 		fmt.Printf("Command %s not handle\n", command)
 		os.Exit(1)
