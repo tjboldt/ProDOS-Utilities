@@ -105,6 +105,14 @@ func DumpVolumeHeader(volumeHeader VolumeHeader) {
 	fmt.Printf("Total blocks: %d\n", volumeHeader.TotalBlocks)
 }
 
+func DumpDirectoryHeader(directoryHeader DirectoryHeader) {
+	fmt.Printf("Name: %s\n", directoryHeader.Name)
+	fmt.Printf("File count: %d\n", directoryHeader.ActiveFileCount)
+	fmt.Printf("Starting block: %04X\n", directoryHeader.StartingBlock)
+	fmt.Printf("Previous block: %04X\n", directoryHeader.PreviousBlock)
+	fmt.Printf("Next block: %04X\n", directoryHeader.NextBlock)
+}
+
 func DumpBlock(buffer []byte) {
 	for i := 0; i < len(buffer); i += 16 {
 		for j := i; j < i+16; j++ {

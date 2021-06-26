@@ -74,7 +74,21 @@ func CreateVolumeBitmap(numberOfBlocks int) []byte {
 	return volumeBitmap
 }
 
-func FindFreeBlocks(numberOfBlocks int) []int {
+func FindFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
+	blocks := make([]int, numberOfBlocks)
+
+	blocksFound := 0
+
+	for i := 0; i < len(volumeBitmap)*8; i++ {
+		if CheckFreeBlockInVolumeBitmap(volumeBitmap, i) {
+			blocks[blocksFound] = i
+			blocksFound++
+			if blocksFound == numberOfBlocks {
+				return blocks
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -133,4 +147,32 @@ func FreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
 	}
 
 	volumeBitmap[byteToChange] |= byte(byteToOr)
+}
+
+func CheckFreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) bool {
+	bitToCheck := blockNumber % 8
+	byteToCheck := blockNumber / 8
+
+	byteToAnd := 0b00000000
+
+	switch bitToCheck {
+	case 0:
+		byteToAnd = 0b10000000
+	case 1:
+		byteToAnd = 0b01000000
+	case 2:
+		byteToAnd = 0b00100000
+	case 3:
+		byteToAnd = 0b00010000
+	case 4:
+		byteToAnd = 0b00001000
+	case 5:
+		byteToAnd = 0b00000100
+	case 6:
+		byteToAnd = 0b00000010
+	case 7:
+		byteToAnd = 0b00000001
+	}
+
+	return (volumeBitmap[byteToCheck] & byte(byteToAnd)) > 0
 }

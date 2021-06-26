@@ -3,18 +3,20 @@ This project is just starting but is intended to be both a command line tool and
 
 ## Current command line functionality
 1. Export files
-2. List any directory
-3. Display volume bitmap
-4. Create new volume
-5. Delete file
+2. Write files (currently only works with &lt; 128K files)
+3. List any directory
+4. Display volume bitmap
+5. Create new volume
+6. Delete file
 
 ## Current library functionality
 1. Read block
 2. Write block
 3. Read file
-4. Delete file
-5. Create new volume
-6. Read volume bitmap
-7. Write volume bitmap
-8. Get list of file entries from any path
-9. Get volume header
+4. Write file
+5. Delete file
+6. Create new volume
+7. Read volume bitmap
+8. Write volume bitmap
+9. Get list of file entries from any path
+10. Get volume header

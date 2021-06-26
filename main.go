@@ -13,13 +13,15 @@ func main() {
 	var pathName string
 	var command string
 	var outFileName string
+	var inFileName string
 	var blockNumber int
 	var volumeSize int
 	var volumeName string
 	flag.StringVar(&fileName, "driveimage", "", "A ProDOS format drive image")
 	flag.StringVar(&pathName, "path", "", "Path name in ProDOS drive image")
 	flag.StringVar(&command, "command", "ls", "Command to execute: ls, get, put, volumebitmap, readblock, writeblock, createvolume, delete")
-	flag.StringVar(&outFileName, "outfile", "export.bin", "Name of file to write")
+	flag.StringVar(&outFileName, "outfile", "", "Name of file to write")
+	flag.StringVar(&inFileName, "infile", "", "Name of file to read")
 	flag.IntVar(&volumeSize, "volumesize", 65535, "Number of blocks to create the volume with")
 	flag.StringVar(&volumeName, "volumename", "NO.NAME", "Specifiy a name for the volume from 1 to 15 characters")
 	flag.IntVar(&blockNumber, "block", 0, "A block number to read/write from 0 to 65535")
@@ -36,7 +38,7 @@ func main() {
 		if err != nil {
 			os.Exit(1)
 		}
-		volumeHeader, fileEntries := prodos.ReadDirectory(file, pathName)
+		volumeHeader, _, fileEntries := prodos.ReadDirectory(file, pathName)
 		prodos.DumpDirectory(volumeHeader, fileEntries)
 	case "volumebitmap":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
@@ -55,11 +57,28 @@ func main() {
 			os.Exit(1)
 		}
 		getFile := prodos.LoadFile(file, pathName)
+		if len(outFileName) == 0 {
+			_, outFileName = prodos.GetDirectoryAndFileNameFromPath(pathName)
+		}
 		outFile, err := os.Create(outFileName)
 		if err != nil {
 			os.Exit(1)
 		}
 		outFile.Write(getFile)
+	case "put":
+		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+		if err != nil {
+			os.Exit(1)
+		}
+		if len(pathName) == 0 {
+			fmt.Println("Missing pathname")
+			os.Exit(1)
+		}
+		inFile, err := os.ReadFile(inFileName)
+		if err != nil {
+			os.Exit(1)
+		}
+		prodos.WriteFile(file, pathName, inFile)
 	case "readblock":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {

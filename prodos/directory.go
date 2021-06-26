@@ -23,6 +23,8 @@ type VolumeHeader struct {
 type DirectoryHeader struct {
 	Name            string
 	ActiveFileCount int
+	StartingBlock   int
+	PreviousBlock   int
 	NextBlock       int
 }
 
@@ -53,11 +55,10 @@ type FileEntry struct {
 	DirectoryOffset int
 }
 
-func ReadDirectory(file *os.File, path string) (VolumeHeader, []FileEntry) {
+func ReadDirectory(file *os.File, path string) (VolumeHeader, DirectoryHeader, []FileEntry) {
 	buffer := ReadBlock(file, 2)
 
 	volumeHeader := parseVolumeHeader(buffer)
-	//dumpVolumeHeader(volumeHeader)
 
 	if len(path) == 0 {
 		path = fmt.Sprintf("/%s", volumeHeader.VolumeName)
@@ -66,17 +67,52 @@ func ReadDirectory(file *os.File, path string) (VolumeHeader, []FileEntry) {
 	path = strings.ToUpper(path)
 	paths := strings.Split(path, "/")
 
-	fileEntries := getFileEntriesInDirectory(file, 2, 1, paths)
+	directoryHeader, fileEntries := getFileEntriesInDirectory(file, 2, 1, paths)
 
-	return volumeHeader, fileEntries
+	return volumeHeader, directoryHeader, fileEntries
 }
 
-func getFileEntriesInDirectory(file *os.File, blockNumber int, currentPath int, paths []string) []FileEntry {
-	//fmt.Printf("Parsing '%s'...\n", paths[currentPath])
+func GetFreeFileEntryInDirectory(file *os.File, directory string) FileEntry {
+	_, directoryHeader, _ := ReadDirectory(file, directory)
+	DumpDirectoryHeader(directoryHeader)
+	blockNumber := directoryHeader.StartingBlock
+	buffer := ReadBlock(file, blockNumber)
+
+	entryOffset := 43 // start at offset after header
+	entryNumber := 2  // header is essentially the first entry so start at 2
+
+	for {
+		if entryNumber > 13 {
+			blockNumber = int(buffer[2]) + int(buffer[3])*256
+			// if we ran out of blocks in the directory, return empty
+			// TODO: expand the directory to add more entries
+			if blockNumber == 0 {
+				return FileEntry{}
+			}
+			// else read the next block in the directory
+			buffer = ReadBlock(file, blockNumber)
+			entryOffset = 4
+			entryNumber = 1
+		}
+		fileEntry := parseFileEntry(buffer[entryOffset:entryOffset+40], blockNumber, entryOffset)
+
+		if fileEntry.StorageType == StorageDeleted {
+			fileEntry.DirectoryBlock = blockNumber
+			fileEntry.DirectoryOffset = entryOffset
+			fileEntry.HeaderPointer = directoryHeader.StartingBlock
+			return fileEntry
+		}
+
+		entryNumber++
+		entryOffset += 39
+	}
+}
+
+func getFileEntriesInDirectory(file *os.File, blockNumber int, currentPath int, paths []string) (DirectoryHeader, []FileEntry) {
 
 	buffer := ReadBlock(file, blockNumber)
 
-	directoryHeader := parseDirectoryHeader(buffer)
+	directoryHeader := parseDirectoryHeader(buffer, blockNumber)
 
 	fileEntries := make([]FileEntry, directoryHeader.ActiveFileCount)
 	entryOffset := 43 // start at offset after header
@@ -89,7 +125,7 @@ func getFileEntriesInDirectory(file *os.File, blockNumber int, currentPath int, 
 
 	if !matchedDirectory && (currentPath == len(paths)-1) {
 		// path not matched by last path part
-		return nil
+		return DirectoryHeader{}, nil
 	}
 
 	for {
@@ -97,24 +133,23 @@ func getFileEntriesInDirectory(file *os.File, blockNumber int, currentPath int, 
 			entryOffset = 4
 			entryNumber = 1
 			if blockNumber == 0 {
-				return nil
+				return DirectoryHeader{}, nil
 			}
 			buffer = ReadBlock(file, nextBlock)
 			nextBlock = int(buffer[2]) + int(buffer[3])*256
 		}
 		fileEntry := parseFileEntry(buffer[entryOffset:entryOffset+40], blockNumber, entryOffset)
-		//DumpFileEntry(fileEntry)
 
 		if fileEntry.StorageType != StorageDeleted {
+			if matchedDirectory && activeEntries == directoryHeader.ActiveFileCount {
+				return directoryHeader, fileEntries[0:activeEntries]
+			}
 			if matchedDirectory {
 				fileEntries[activeEntries] = fileEntry
 			} else if !matchedDirectory && fileEntry.FileType == 15 && paths[currentPath+1] == fileEntry.FileName {
 				return getFileEntriesInDirectory(file, fileEntry.KeyPointer, currentPath+1, paths)
 			}
 			activeEntries++
-			if matchedDirectory && activeEntries == directoryHeader.ActiveFileCount {
-				return fileEntries[0:activeEntries]
-			}
 		}
 
 		entryNumber++
@@ -227,14 +262,17 @@ func parseVolumeHeader(buffer []byte) VolumeHeader {
 	return volumeHeader
 }
 
-func parseDirectoryHeader(buffer []byte) DirectoryHeader {
+func parseDirectoryHeader(buffer []byte, blockNumber int) DirectoryHeader {
+	previousBlock := int(buffer[0x00]) + int(buffer[0x01])*256
 	nextBlock := int(buffer[0x02]) + int(buffer[0x03])*256
 	filenameLength := buffer[0x04] & 15
 	name := string(buffer[0x05 : filenameLength+0x05])
 	fileCount := int(buffer[0x25]) + int(buffer[0x26])*256
 
 	directoryEntry := DirectoryHeader{
+		PreviousBlock:   previousBlock,
 		NextBlock:       nextBlock,
+		StartingBlock:   blockNumber,
 		Name:            name,
 		ActiveFileCount: fileCount,
 	}
