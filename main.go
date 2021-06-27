@@ -17,6 +17,8 @@ func main() {
 	var blockNumber int
 	var volumeSize int
 	var volumeName string
+	var fileType int
+	var auxType int
 	flag.StringVar(&fileName, "driveimage", "", "A ProDOS format drive image")
 	flag.StringVar(&pathName, "path", "", "Path name in ProDOS drive image")
 	flag.StringVar(&command, "command", "ls", "Command to execute: ls, get, put, volumebitmap, readblock, writeblock, createvolume, delete")
@@ -25,6 +27,8 @@ func main() {
 	flag.IntVar(&volumeSize, "volumesize", 65535, "Number of blocks to create the volume with")
 	flag.StringVar(&volumeName, "volumename", "NO.NAME", "Specifiy a name for the volume from 1 to 15 characters")
 	flag.IntVar(&blockNumber, "block", 0, "A block number to read/write from 0 to 65535")
+	flag.IntVar(&fileType, "type", 6, "ProDOS FileType: 4=txt, 6=bin, 252=bas, 255=sys etc.")
+	flag.IntVar(&auxType, "aux", 0x2000, "ProDOS AuxType from 0 to 65535 (usually load address)")
 	flag.Parse()
 
 	if len(fileName) == 0 {
@@ -78,7 +82,7 @@ func main() {
 		if err != nil {
 			os.Exit(1)
 		}
-		prodos.WriteFile(file, pathName, inFile)
+		prodos.WriteFile(file, pathName, fileType, auxType, inFile)
 	case "readblock":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {

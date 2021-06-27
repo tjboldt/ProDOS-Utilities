@@ -23,7 +23,7 @@ func LoadFile(file *os.File, path string) []byte {
 	return buffer
 }
 
-func WriteFile(file *os.File, path string, buffer []byte) {
+func WriteFile(file *os.File, path string, fileType int, auxType int, buffer []byte) {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 
 	DeleteFile(file, path)
@@ -80,9 +80,9 @@ func WriteFile(file *os.File, path string, buffer []byte) {
 	fileEntry.BlocksUsed = len(blockList)
 	fileEntry.CreationTime = time.Now()
 	fileEntry.ModifiedTime = time.Now()
-	fileEntry.AuxType = 0x2000
+	fileEntry.AuxType = auxType
 	fileEntry.EndOfFile = len(buffer)
-	fileEntry.FileType = 0x06
+	fileEntry.FileType = fileType
 	fileEntry.KeyPointer = blockList[0]
 
 	writeFileEntry(file, fileEntry)
