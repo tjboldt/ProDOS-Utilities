@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/tjboldt/ProDOS-Utilities/prodos"
 )
@@ -68,7 +69,11 @@ func main() {
 		if err != nil {
 			os.Exit(1)
 		}
-		outFile.Write(getFile)
+		if strings.HasSuffix(strings.ToLower(outFileName), ".bas") {
+			fmt.Fprintf(outFile, prodos.ConvertBasicToText(getFile))
+		} else {
+			outFile.Write(getFile)
+		}
 	case "put":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
