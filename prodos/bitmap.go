@@ -24,7 +24,7 @@ func ReadVolumeBitmap(file *os.File) []byte {
 	return bitmap
 }
 
-func WriteVolumeBitmap(file *os.File, bitmap []byte) {
+func writeVolumeBitmap(file *os.File, bitmap []byte) {
 	headerBlock := ReadBlock(file, 2)
 
 	volumeHeader := parseVolumeHeader(headerBlock)
@@ -34,7 +34,7 @@ func WriteVolumeBitmap(file *os.File, bitmap []byte) {
 	}
 }
 
-func CreateVolumeBitmap(numberOfBlocks int) []byte {
+func createVolumeBitmap(numberOfBlocks int) []byte {
 	volumeBitmapBlocks := numberOfBlocks / 512 / 8
 	if volumeBitmapBlocks*8*512 < numberOfBlocks {
 		volumeBitmapBlocks++
@@ -47,18 +47,18 @@ func CreateVolumeBitmap(numberOfBlocks int) []byte {
 	}
 
 	// boot blocks
-	MarkBlockInVolumeBitmap(volumeBitmap, 0)
-	MarkBlockInVolumeBitmap(volumeBitmap, 1)
+	markBlockInVolumeBitmap(volumeBitmap, 0)
+	markBlockInVolumeBitmap(volumeBitmap, 1)
 
 	// root directory
-	MarkBlockInVolumeBitmap(volumeBitmap, 2)
-	MarkBlockInVolumeBitmap(volumeBitmap, 3)
-	MarkBlockInVolumeBitmap(volumeBitmap, 4)
-	MarkBlockInVolumeBitmap(volumeBitmap, 5)
+	markBlockInVolumeBitmap(volumeBitmap, 2)
+	markBlockInVolumeBitmap(volumeBitmap, 3)
+	markBlockInVolumeBitmap(volumeBitmap, 4)
+	markBlockInVolumeBitmap(volumeBitmap, 5)
 
 	// volume bitmap blocks
 	for i := 0; i < volumeBitmapBlocks; i++ {
-		MarkBlockInVolumeBitmap(volumeBitmap, 6+i)
+		markBlockInVolumeBitmap(volumeBitmap, 6+i)
 	}
 
 	// blocks beyond the volume
@@ -66,7 +66,7 @@ func CreateVolumeBitmap(numberOfBlocks int) []byte {
 	blocksBeyondEnd := totalBlocksInBitmap - numberOfBlocks
 	if blocksBeyondEnd > 0 {
 		for i := totalBlocksInBitmap - blocksBeyondEnd; i < totalBlocksInBitmap; i++ {
-			MarkBlockInVolumeBitmap(volumeBitmap, i)
+			markBlockInVolumeBitmap(volumeBitmap, i)
 		}
 	}
 	//DumpBlock(volumeBitmap)
@@ -74,13 +74,13 @@ func CreateVolumeBitmap(numberOfBlocks int) []byte {
 	return volumeBitmap
 }
 
-func FindFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
+func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 	blocks := make([]int, numberOfBlocks)
 
 	blocksFound := 0
 
 	for i := 0; i < len(volumeBitmap)*8; i++ {
-		if CheckFreeBlockInVolumeBitmap(volumeBitmap, i) {
+		if checkFreeBlockInVolumeBitmap(volumeBitmap, i) {
 			blocks[blocksFound] = i
 			blocksFound++
 			if blocksFound == numberOfBlocks {
@@ -92,7 +92,7 @@ func FindFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 	return nil
 }
 
-func MarkBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
+func markBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
 	bitToChange := blockNumber % 8
 	byteToChange := blockNumber / 8
 
@@ -121,7 +121,7 @@ func MarkBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
 	volumeBitmap[byteToChange] &= byte(byteToAnd)
 }
 
-func FreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
+func freeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
 	bitToChange := blockNumber % 8
 	byteToChange := blockNumber / 8
 
@@ -149,7 +149,7 @@ func FreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
 	volumeBitmap[byteToChange] |= byte(byteToOr)
 }
 
-func CheckFreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) bool {
+func checkFreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) bool {
 	bitToCheck := blockNumber % 8
 	byteToCheck := blockNumber / 8
 

@@ -9,7 +9,7 @@ import (
 func LoadFile(file *os.File, path string) []byte {
 	fileEntry := GetFileEntry(file, path)
 
-	blockList := GetBlocklist(file, fileEntry)
+	blockList := getBlocklist(file, fileEntry)
 
 	buffer := make([]byte, fileEntry.EndOfFile)
 
@@ -29,7 +29,7 @@ func WriteFile(file *os.File, path string, fileType int, auxType int, buffer []b
 	DeleteFile(file, path)
 
 	// get list of blocks to write file to
-	blockList := CreateBlockList(file, len(buffer))
+	blockList := createBlockList(file, len(buffer))
 
 	fileEntry := GetFreeFileEntryInDirectory(file, directory)
 
@@ -88,7 +88,7 @@ func WriteFile(file *os.File, path string, fileType int, auxType int, buffer []b
 	writeFileEntry(file, fileEntry)
 }
 
-func GetBlocklist(file *os.File, fileEntry FileEntry) []int {
+func getBlocklist(file *os.File, fileEntry FileEntry) []int {
 	blocks := make([]int, fileEntry.BlocksUsed)
 
 	switch fileEntry.StorageType {
@@ -112,7 +112,7 @@ func GetBlocklist(file *os.File, fileEntry FileEntry) []int {
 	return blocks
 }
 
-func CreateBlockList(file *os.File, fileSize int) []int {
+func createBlockList(file *os.File, fileSize int) []int {
 	numberOfBlocks := fileSize / 512
 	if fileSize%512 > 0 {
 		numberOfBlocks++
@@ -131,7 +131,7 @@ func CreateBlockList(file *os.File, fileSize int) []int {
 		}
 	}
 	volumeBitmap := ReadVolumeBitmap(file)
-	blockList := FindFreeBlocks(volumeBitmap, numberOfBlocks)
+	blockList := findFreeBlocks(volumeBitmap, numberOfBlocks)
 
 	return blockList
 }
@@ -180,12 +180,12 @@ func DeleteFile(file *os.File, path string) {
 	}
 
 	// free the blocks
-	blocks := GetBlocklist(file, fileEntry)
+	blocks := getBlocklist(file, fileEntry)
 	volumeBitmap := ReadVolumeBitmap(file)
 	for i := 0; i < len(blocks); i++ {
-		FreeBlockInVolumeBitmap(volumeBitmap, blocks[i])
+		freeBlockInVolumeBitmap(volumeBitmap, blocks[i])
 	}
-	WriteVolumeBitmap(file, volumeBitmap)
+	writeVolumeBitmap(file, volumeBitmap)
 
 	// zero out directory entry
 	fileEntry.StorageType = 0

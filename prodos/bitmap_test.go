@@ -18,7 +18,7 @@ func TestCreateVolumeBitmap(t *testing.T) {
 	for _, tt := range tests {
 		testname := fmt.Sprintf("%d", tt.blocks)
 		t.Run(testname, func(t *testing.T) {
-			volumeBitMap := CreateVolumeBitmap(tt.blocks)
+			volumeBitMap := createVolumeBitmap(tt.blocks)
 			ans := len(volumeBitMap)
 			if ans != tt.want {
 				t.Errorf("got %d, want %d", ans, tt.want)
@@ -45,8 +45,8 @@ func TestCheckFreeBlockInVolumeBitmap(t *testing.T) {
 	for _, tt := range tests {
 		testname := fmt.Sprintf("%d", tt.blocks)
 		t.Run(testname, func(t *testing.T) {
-			volumeBitMap := CreateVolumeBitmap(65535)
-			ans := CheckFreeBlockInVolumeBitmap(volumeBitMap, tt.blocks)
+			volumeBitMap := createVolumeBitmap(65535)
+			ans := checkFreeBlockInVolumeBitmap(volumeBitMap, tt.blocks)
 			if ans != tt.want {
 				t.Errorf("got %t, want %t", ans, tt.want)
 			}

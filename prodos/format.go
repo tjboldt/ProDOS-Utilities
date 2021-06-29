@@ -64,7 +64,7 @@ func CreateVolume(fileName string, volumeName string, numberOfBlocks int) {
 	file.Sync()
 
 	// boot block 0
-	WriteBlock(file, 0, GetBootBlock())
+	WriteBlock(file, 0, getBootBlock())
 
 	// pointers to volume directory blocks
 	for i := 2; i < 6; i++ {
@@ -85,13 +85,13 @@ func CreateVolume(fileName string, volumeName string, numberOfBlocks int) {
 	}
 
 	// volume bit map starting at block 6
-	volumeBitmap := CreateVolumeBitmap(numberOfBlocks)
-	WriteVolumeBitmap(file, volumeBitmap)
+	volumeBitmap := createVolumeBitmap(numberOfBlocks)
+	writeVolumeBitmap(file, volumeBitmap)
 
 	file.Close()
 }
 
-func GetBootBlock() []byte {
+func getBootBlock() []byte {
 	bootBlock := []byte{
 		0x01, 0x38, 0xb0, 0x03, 0x4c, 0x1c, 0x09, 0x78, 0x86, 0x43, 0xc9, 0x03, 0x08, 0x8a, 0x29, 0x70,
 		0x4a, 0x4a, 0x4a, 0x4a, 0x09, 0xc0, 0x85, 0x49, 0xa0, 0xff, 0x84, 0x48, 0x28, 0xc8, 0xb1, 0x48,
