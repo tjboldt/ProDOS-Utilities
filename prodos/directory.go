@@ -1,6 +1,7 @@
 package prodos
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -72,9 +73,9 @@ func ReadDirectory(file *os.File, path string) (VolumeHeader, DirectoryHeader, [
 	return volumeHeader, directoryHeader, fileEntries
 }
 
-func GetFreeFileEntryInDirectory(file *os.File, directory string) FileEntry {
+func GetFreeFileEntryInDirectory(file *os.File, directory string) (FileEntry, error) {
 	_, directoryHeader, _ := ReadDirectory(file, directory)
-	DumpDirectoryHeader(directoryHeader)
+	//DumpDirectoryHeader(directoryHeader)
 	blockNumber := directoryHeader.StartingBlock
 	buffer := ReadBlock(file, blockNumber)
 
@@ -87,7 +88,7 @@ func GetFreeFileEntryInDirectory(file *os.File, directory string) FileEntry {
 			// if we ran out of blocks in the directory, return empty
 			// TODO: expand the directory to add more entries
 			if blockNumber == 0 {
-				return FileEntry{}
+				return FileEntry{}, errors.New("No free file entries found")
 			}
 			// else read the next block in the directory
 			buffer = ReadBlock(file, blockNumber)
@@ -100,7 +101,7 @@ func GetFreeFileEntryInDirectory(file *os.File, directory string) FileEntry {
 			fileEntry.DirectoryBlock = blockNumber
 			fileEntry.DirectoryOffset = entryOffset
 			fileEntry.HeaderPointer = directoryHeader.StartingBlock
-			return fileEntry
+			return fileEntry, nil
 		}
 
 		entryNumber++

@@ -61,7 +61,10 @@ func main() {
 			fmt.Println("Missing pathname")
 			os.Exit(1)
 		}
-		getFile := prodos.LoadFile(file, pathName)
+		getFile, err := prodos.LoadFile(file, pathName)
+		if err != nil {
+			fmt.Printf("Failed to read file %s: %s", pathName, err)
+		}
 		if len(outFileName) == 0 {
 			_, outFileName = prodos.GetDirectoryAndFileNameFromPath(pathName)
 		}
@@ -87,7 +90,10 @@ func main() {
 		if err != nil {
 			os.Exit(1)
 		}
-		prodos.WriteFile(file, pathName, fileType, auxType, inFile)
+		err = prodos.WriteFile(file, pathName, fileType, auxType, inFile)
+		if err != nil {
+			fmt.Printf("Failed to write file %s: %s", pathName, err)
+		}
 	case "readblock":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
