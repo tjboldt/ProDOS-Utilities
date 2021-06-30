@@ -110,7 +110,6 @@ func GetFreeFileEntryInDirectory(file *os.File, directory string) (FileEntry, er
 }
 
 func getFileEntriesInDirectory(file *os.File, blockNumber int, currentPath int, paths []string) (DirectoryHeader, []FileEntry) {
-
 	buffer := ReadBlock(file, blockNumber)
 
 	directoryHeader := parseDirectoryHeader(buffer, blockNumber)
@@ -281,8 +280,10 @@ func parseDirectoryHeader(buffer []byte, blockNumber int) DirectoryHeader {
 	return directoryEntry
 }
 
-func writeDirectoryHeader(file *os.File, directoryHeader DirectoryHeader, blockNumber int) {
-	buffer := ReadBlock(file, blockNumber)
+func writeDirectoryHeader(file *os.File, directoryHeader DirectoryHeader) {
+	buffer := ReadBlock(file, directoryHeader.StartingBlock)
+	buffer[0x00] = byte(directoryHeader.PreviousBlock & 0x00FF)
+	buffer[0x01] = byte(directoryHeader.PreviousBlock >> 8)
 	buffer[0x02] = byte(directoryHeader.NextBlock & 0x00FF)
 	buffer[0x03] = byte(directoryHeader.NextBlock >> 8)
 	buffer[0x04] = buffer[0x04] | byte(len(directoryHeader.Name))
@@ -291,5 +292,5 @@ func writeDirectoryHeader(file *os.File, directoryHeader DirectoryHeader, blockN
 	}
 	buffer[0x25] = byte(directoryHeader.ActiveFileCount & 0x00FF)
 	buffer[0x26] = byte(directoryHeader.ActiveFileCount >> 8)
-	file.WriteAt(buffer, int64(blockNumber*512))
+	WriteBlock(file, directoryHeader.StartingBlock, buffer)
 }
