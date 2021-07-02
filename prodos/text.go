@@ -120,7 +120,7 @@ func DumpBlock(buffer []byte) {
 		}
 		for j := i; j < i+16; j++ {
 			c := buffer[j] & 127
-			if c >= 32 {
+			if c >= 32 && c < 127 {
 				fmt.Printf("%c", c)
 			} else {
 				fmt.Printf(".")

@@ -9,14 +9,23 @@ func ReadVolumeBitmap(file *os.File) []byte {
 
 	volumeHeader := parseVolumeHeader(headerBlock)
 
-	bitmap := make([]byte, volumeHeader.TotalBlocks/8+1)
+	totalBitmapBytes := volumeHeader.TotalBlocks / 8
+	if volumeHeader.TotalBlocks%8 > 0 {
+		totalBitmapBytes++
+	}
 
-	totalBitmapBlocks := volumeHeader.TotalBlocks / 8 / 512
+	bitmap := make([]byte, totalBitmapBytes)
 
-	for i := 0; i <= totalBitmapBlocks; i++ {
+	totalBitmapBlocks := totalBitmapBytes / 512
+
+	if totalBitmapBytes%512 > 0 {
+		totalBitmapBlocks++
+	}
+
+	for i := 0; i < totalBitmapBlocks; i++ {
 		bitmapBlock := ReadBlock(file, i+volumeHeader.BitmapStartBlock)
 
-		for j := 0; j < 512; j++ {
+		for j := 0; j < 512 && i*512+j < totalBitmapBytes; j++ {
 			bitmap[i*512+j] = bitmapBlock[j]
 		}
 	}
@@ -90,6 +99,17 @@ func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 	}
 
 	return nil
+}
+
+func getFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
+	freeBlockCount := 0
+
+	for i := 0; i < totalBlocks; i++ {
+		if checkFreeBlockInVolumeBitmap(volumeBitmap, i) {
+			freeBlockCount++
+		}
+	}
+	return freeBlockCount
 }
 
 func markBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
