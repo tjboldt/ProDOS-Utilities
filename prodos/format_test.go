@@ -21,7 +21,7 @@ func TestCreateVolume(t *testing.T) {
 		testname := fmt.Sprintf("%d", tt.blocks)
 		t.Run(testname, func(t *testing.T) {
 			fileName := os.TempDir() + "test-volume.hdv"
-			os.Remove(fileName)
+			defer os.Remove(fileName)
 			CreateVolume(fileName, tt.wantVolumeName, tt.blocks)
 
 			file, err := os.Open(fileName)

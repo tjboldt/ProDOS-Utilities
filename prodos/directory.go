@@ -73,7 +73,7 @@ func ReadDirectory(file *os.File, path string) (VolumeHeader, DirectoryHeader, [
 	return volumeHeader, directoryHeader, fileEntries
 }
 
-func GetFreeFileEntryInDirectory(file *os.File, directory string) (FileEntry, error) {
+func getFreeFileEntryInDirectory(file *os.File, directory string) (FileEntry, error) {
 	_, directoryHeader, _ := ReadDirectory(file, directory)
 	//DumpDirectoryHeader(directoryHeader)
 	blockNumber := directoryHeader.StartingBlock
