@@ -63,13 +63,15 @@ func main() {
 		}
 		getFile, err := prodos.LoadFile(file, pathName)
 		if err != nil {
-			fmt.Printf("Failed to read file %s: %s", pathName, err)
+			fmt.Printf("Failed to read file %s: %s\n", pathName, err)
+			os.Exit(1)
 		}
 		if len(outFileName) == 0 {
 			_, outFileName = prodos.GetDirectoryAndFileNameFromPath(pathName)
 		}
 		outFile, err := os.Create(outFileName)
 		if err != nil {
+			fmt.Printf("Failed to create output file %s: %s\n", outFileName, err)
 			os.Exit(1)
 		}
 		if strings.HasSuffix(strings.ToLower(outFileName), ".bas") {

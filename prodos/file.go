@@ -139,6 +139,9 @@ func DeleteFile(file *os.File, path string) error {
 	if fileEntry.StorageType == StorageDeleted {
 		return errors.New("File already deleted")
 	}
+	if fileEntry.StorageType == StorageDirectory {
+		return errors.New("Directory deletion not supported")
+	}
 
 	// free the blocks
 	blocks, err := getBlocklist(file, fileEntry)
