@@ -9,6 +9,8 @@ import (
 	"github.com/tjboldt/ProDOS-Utilities/prodos"
 )
 
+const version = "0.1.0"
+
 func main() {
 	var fileName string
 	var pathName string
@@ -20,20 +22,21 @@ func main() {
 	var volumeName string
 	var fileType int
 	var auxType int
-	flag.StringVar(&fileName, "driveimage", "", "A ProDOS format drive image")
-	flag.StringVar(&pathName, "path", "", "Path name in ProDOS drive image")
-	flag.StringVar(&command, "command", "ls", "Command to execute: ls, get, put, volumebitmap, readblock, writeblock, createvolume, delete")
-	flag.StringVar(&outFileName, "outfile", "", "Name of file to write")
-	flag.StringVar(&inFileName, "infile", "", "Name of file to read")
-	flag.IntVar(&volumeSize, "volumesize", 65535, "Number of blocks to create the volume with")
-	flag.StringVar(&volumeName, "volumename", "NO.NAME", "Specifiy a name for the volume from 1 to 15 characters")
-	flag.IntVar(&blockNumber, "block", 0, "A block number to read/write from 0 to 65535")
-	flag.IntVar(&fileType, "type", 6, "ProDOS FileType: 4=txt, 6=bin, 252=bas, 255=sys etc.")
-	flag.IntVar(&auxType, "aux", 0x2000, "ProDOS AuxType from 0 to 65535 (usually load address)")
+	flag.StringVar(&fileName, "d", "", "A ProDOS format drive image")
+	flag.StringVar(&pathName, "p", "", "Path name in ProDOS drive image (default is root of volume)")
+	flag.StringVar(&command, "c", "ls", "Command to execute: ls, get, put, rm, mkdir, readblock, writeblock, create")
+	flag.StringVar(&outFileName, "o", "", "Name of file to write")
+	flag.StringVar(&inFileName, "i", "", "Name of file to read")
+	flag.IntVar(&volumeSize, "s", 65535, "Number of blocks to create the volume with (default 65535, 64 to 65535, 0x0040 to 0xFFFF hex input accepted)")
+	flag.StringVar(&volumeName, "v", "NO.NAME", "Specifiy a name for the volume from 1 to 15 characters")
+	flag.IntVar(&blockNumber, "b", 0, "A block number to read/write from 0 to 65535 (0x0000 to 0xFFFF hex input accepted)")
+	flag.IntVar(&fileType, "t", 6, "ProDOS FileType: 0x04 for TXT, 0x06 for BIN, 0xFA for BAS, 0xFF for SYS etc.")
+	flag.IntVar(&auxType, "a", 0x2000, "ProDOS AuxType from 0 to 65535 (0x0000 to 0xFFFF hex input accepted)")
 	flag.Parse()
 
 	if len(fileName) == 0 {
-		fmt.Printf("Missing driveimage. Run with --help for more info.\n")
+		printReadme()
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 
@@ -41,22 +44,25 @@ func main() {
 	case "ls":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 			os.Exit(1)
 		}
+		defer file.Close()
+		pathName = strings.ToUpper(pathName)
 		volumeHeader, _, fileEntries := prodos.ReadDirectory(file, pathName)
-		prodos.DumpDirectory(volumeHeader, fileEntries)
-	case "volumebitmap":
-		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
-		if err != nil {
-			os.Exit(1)
+		if len(pathName) == 0 {
+			pathName = "/" + volumeHeader.VolumeName
 		}
 		volumeBitmap := prodos.ReadVolumeBitmap(file)
-		prodos.DumpBlock(volumeBitmap)
+		freeBlocks := prodos.GetFreeBlockCount(volumeBitmap, volumeHeader.TotalBlocks)
+		prodos.DumpDirectory(freeBlocks, volumeHeader.TotalBlocks, pathName, fileEntries)
 	case "get":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 			os.Exit(1)
 		}
+		defer file.Close()
 		if len(pathName) == 0 {
 			fmt.Println("Missing pathname")
 			os.Exit(1)
@@ -82,14 +88,17 @@ func main() {
 	case "put":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 			os.Exit(1)
 		}
+		defer file.Close()
 		if len(pathName) == 0 {
 			fmt.Println("Missing pathname")
 			os.Exit(1)
 		}
 		inFile, err := os.ReadFile(inFileName)
 		if err != nil {
+			fmt.Printf("Failed to open input file %s: %s", inFileName, err)
 			os.Exit(1)
 		}
 		err = prodos.WriteFile(file, pathName, fileType, auxType, inFile)
@@ -97,26 +106,34 @@ func main() {
 			fmt.Printf("Failed to write file %s: %s", pathName, err)
 		}
 	case "readblock":
+		fmt.Printf("Block 0x%04X (%d):\n\n", blockNumber, blockNumber)
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 			os.Exit(1)
 		}
+		defer file.Close()
 		block := prodos.ReadBlock(file, blockNumber)
-		outFile, err := os.Create(outFileName)
+		prodos.DumpBlock(block)
+	case "create":
+		file, err := os.Create(fileName)
 		if err != nil {
-			os.Exit(1)
+			fmt.Printf("failed to create file: %s\n", err)
+			return
 		}
-		outFile.Write(block)
-	case "createvolume":
-		prodos.CreateVolume(fileName, volumeName, volumeSize)
-	case "delete":
+		defer file.Close()
+		prodos.CreateVolume(file, volumeName, volumeSize)
+	case "rm":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 			os.Exit(1)
 		}
+		defer file.Close()
 		prodos.DeleteFile(file, pathName)
 	default:
-		fmt.Printf("Command %s not handle\n", command)
+		fmt.Printf("Invalid command: %s\n\n", command)
+		flag.PrintDefaults()
 		os.Exit(1)
 	}
 }

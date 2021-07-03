@@ -36,6 +36,12 @@ func DateTimeToProDOS(dateTime time.Time) []byte {
 }
 
 func DateTimeFromProDOS(buffer []byte) time.Time {
+	if buffer[0] == 0 &&
+		buffer[1] == 0 &&
+		buffer[2] == 0 &&
+		buffer[3] == 0 {
+		return time.Time{}
+	}
 	twoDigitYear := buffer[1] >> 1
 	var year int
 	if twoDigitYear < 76 {

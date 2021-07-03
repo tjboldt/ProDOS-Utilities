@@ -22,12 +22,16 @@ func TestCreateVolume(t *testing.T) {
 		t.Run(testname, func(t *testing.T) {
 			fileName := os.TempDir() + "test-volume.hdv"
 			defer os.Remove(fileName)
-			CreateVolume(fileName, tt.wantVolumeName, tt.blocks)
-
-			file, err := os.Open(fileName)
+			file, err := os.Create(fileName)
 			if err != nil {
-				t.Error(err)
+				t.Errorf("failed to create file: %s\n", err)
+				return
 			}
+
+			defer file.Close()
+
+			CreateVolume(file, tt.wantVolumeName, tt.blocks)
+
 			volumeHeader, _, fileEntries := ReadDirectory(file, "")
 			if volumeHeader.VolumeName != tt.wantVolumeName {
 				t.Errorf("got volume name %s, want %s", volumeHeader.VolumeName, tt.wantVolumeName)
@@ -40,7 +44,7 @@ func TestCreateVolume(t *testing.T) {
 			}
 
 			volumeBitmap := ReadVolumeBitmap(file)
-			freeBlockCount := getFreeBlockCount(volumeBitmap, tt.blocks)
+			freeBlockCount := GetFreeBlockCount(volumeBitmap, tt.blocks)
 			if freeBlockCount != tt.wantFreeBlocks {
 				t.Errorf("got free blocks: %d, want %d", freeBlockCount, tt.wantFreeBlocks)
 			}

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func CreateVolume(fileName string, volumeName string, numberOfBlocks int) {
+func CreateVolume(file *os.File, volumeName string, numberOfBlocks int) {
 	if numberOfBlocks > 65535 || numberOfBlocks < 64 {
 		return
 	}
@@ -15,11 +15,6 @@ func CreateVolume(fileName string, volumeName string, numberOfBlocks int) {
 	volumeNameLen := len(volumeName)
 	if volumeNameLen == 0 || volumeNameLen > 15 {
 		fmt.Println("bad name length")
-		return
-	}
-	file, err := os.Create(fileName)
-	if err != nil {
-		fmt.Printf("failed to create file: %s\n", err)
 		return
 	}
 
@@ -87,8 +82,6 @@ func CreateVolume(fileName string, volumeName string, numberOfBlocks int) {
 	// volume bit map starting at block 6
 	volumeBitmap := createVolumeBitmap(numberOfBlocks)
 	writeVolumeBitmap(file, volumeBitmap)
-
-	file.Close()
 }
 
 func getBootBlock() []byte {

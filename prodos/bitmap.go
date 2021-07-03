@@ -101,7 +101,7 @@ func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 	return nil
 }
 
-func getFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
+func GetFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
 	freeBlockCount := 0
 
 	for i := 0; i < totalBlocks; i++ {
