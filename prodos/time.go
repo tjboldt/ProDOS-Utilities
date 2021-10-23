@@ -50,7 +50,7 @@ func DateTimeFromProDOS(buffer []byte) time.Time {
 		year = 1900 + int(twoDigitYear)
 	}
 
-	month := int(buffer[0]>>5 + buffer[1]&1)
+	month := int(buffer[0]>>5 + (buffer[1]&1)<<3)
 	day := int(buffer[0] & 31)
 	hour := int(buffer[3])
 	minute := int(buffer[2])

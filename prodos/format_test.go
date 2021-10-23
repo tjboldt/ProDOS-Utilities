@@ -20,7 +20,7 @@ func TestCreateVolume(t *testing.T) {
 	for _, tt := range tests {
 		testname := fmt.Sprintf("%d", tt.blocks)
 		t.Run(testname, func(t *testing.T) {
-			fileName := os.TempDir() + "test-volume.hdv"
+			fileName := os.TempDir() + "/test-volume.hdv"
 			defer os.Remove(fileName)
 			file, err := os.Create(fileName)
 			if err != nil {
