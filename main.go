@@ -106,7 +106,7 @@ func main() {
 			fmt.Printf("Failed to write file %s: %s", pathName, err)
 		}
 	case "readblock":
-		fmt.Printf("Block 0x%04X (%d):\n\n", blockNumber, blockNumber)
+		fmt.Printf("Reading block 0x%04X (%d):\n\n", blockNumber, blockNumber)
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
 			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
@@ -115,6 +115,20 @@ func main() {
 		defer file.Close()
 		block := prodos.ReadBlock(file, blockNumber)
 		prodos.DumpBlock(block)
+	case "writeblock":
+		fmt.Printf("Writing block 0x%04X (%d):\n\n", blockNumber, blockNumber)
+		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
+			os.Exit(1)
+		}
+		defer file.Close()
+		inFile, err := os.ReadFile(inFileName)
+		if err != nil {
+			fmt.Printf("Failed to open input file %s: %s", inFileName, err)
+			os.Exit(1)
+		}
+		prodos.WriteBlock(file, blockNumber, inFile)
 	case "create":
 		file, err := os.Create(fileName)
 		if err != nil {
