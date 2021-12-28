@@ -133,7 +133,7 @@ func DumpBlock(buffer []byte) {
 
 func DumpDirectory(blocksFree int, totalBlocks int, path string, fileEntries []FileEntry) {
 	fmt.Printf("%s\n\n", path)
-	fmt.Printf(" NAME           TYPE  BLOCKS  MODIFIED          CREATED            ENDFILE  SUBTYPE\n\n")
+	fmt.Printf("NAME          TYPE BLOCKS  MODIFIED          CREATED           ENDFILE  SUBTYPE\n\n")
 
 	for i := 0; i < len(fileEntries); i++ {
 		var zeroTime = time.Time{}
@@ -148,7 +148,7 @@ func DumpDirectory(blocksFree int, totalBlocks int, path string, fileEntries []F
 		} else {
 			createdTime = TimeToString(fileEntries[i].CreationTime)
 		}
-		fmt.Printf(" %-15s %s %7d  %s %s %8d %8d\n",
+		fmt.Printf("%-15s %s%6d  %s %s%8d %8d\n",
 			fileEntries[i].FileName,
 			FileTypeToString(fileEntries[i].FileType),
 			fileEntries[i].BlocksUsed,
