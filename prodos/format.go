@@ -1,13 +1,21 @@
+// Copyright Terence J. Boldt (c)2021-2022
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides access to format a ProDOS drive image
+
 package prodos
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"strings"
 	"time"
 )
 
-func CreateVolume(file *os.File, volumeName string, numberOfBlocks int) {
+// CreateVolume formats a new ProDOS volume including boot block,
+// volume bitmap and empty directory
+func CreateVolume(writer io.WriterAt, reader io.ReaderAt, volumeName string, numberOfBlocks int) {
 	if numberOfBlocks > 65535 || numberOfBlocks < 64 {
 		return
 	}
@@ -20,7 +28,7 @@ func CreateVolume(file *os.File, volumeName string, numberOfBlocks int) {
 
 	blankBlock := make([]byte, 512)
 	for i := 0; i < numberOfBlocks; i++ {
-		WriteBlockNoSync(file, i, blankBlock)
+		WriteBlock(writer, i, blankBlock)
 	}
 
 	volumeHeader := [43]byte{}
@@ -55,11 +63,10 @@ func CreateVolume(file *os.File, volumeName string, numberOfBlocks int) {
 	volumeHeader[0x29] = byte(numberOfBlocks & 0xFF)
 	volumeHeader[0x2A] = byte(numberOfBlocks >> 8)
 
-	file.WriteAt(volumeHeader[:], 1024)
-	file.Sync()
+	writer.WriteAt(volumeHeader[:], 1024)
 
 	// boot block 0
-	WriteBlock(file, 0, getBootBlock())
+	WriteBlock(writer, 0, getBootBlock())
 
 	// pointers to volume directory blocks
 	for i := 2; i < 6; i++ {
@@ -76,12 +83,12 @@ func CreateVolume(file *os.File, volumeName string, numberOfBlocks int) {
 			pointers[2] = byte(i + 1)
 		}
 		pointers[3] = 0x00
-		file.WriteAt(pointers, int64(i*512))
+		writer.WriteAt(pointers, int64(i*512))
 	}
 
 	// volume bit map starting at block 6
 	volumeBitmap := createVolumeBitmap(numberOfBlocks)
-	writeVolumeBitmap(file, volumeBitmap)
+	writeVolumeBitmap(writer, reader, volumeBitmap)
 }
 
 func getBootBlock() []byte {

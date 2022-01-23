@@ -1,3 +1,11 @@
+// Copyright Terence J. Boldt (c)2021-2022
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides a command line utility to read, write and delete
+// files and directories on a ProDOS drive image as well as format
+// new volumes
+
 package main
 
 import (
@@ -101,7 +109,7 @@ func main() {
 			fmt.Printf("Failed to open input file %s: %s", inFileName, err)
 			os.Exit(1)
 		}
-		err = prodos.WriteFile(file, pathName, fileType, auxType, inFile)
+		err = prodos.WriteFile(file, file, pathName, fileType, auxType, inFile)
 		if err != nil {
 			fmt.Printf("Failed to write file %s: %s", pathName, err)
 		}
@@ -136,7 +144,7 @@ func main() {
 			return
 		}
 		defer file.Close()
-		prodos.CreateVolume(file, volumeName, volumeSize)
+		prodos.CreateVolume(file, file, volumeName, volumeSize)
 	case "rm":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
@@ -144,7 +152,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer file.Close()
-		prodos.DeleteFile(file, pathName)
+		prodos.DeleteFile(file, file, pathName)
 	default:
 		fmt.Printf("Invalid command: %s\n\n", command)
 		flag.PrintDefaults()

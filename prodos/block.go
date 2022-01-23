@@ -1,22 +1,24 @@
+// Copyright Terence J. Boldt (c)2021-2022
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides access to read and write
+// blocks on a ProDOS drive image
+
 package prodos
 
 import (
-	"os"
+	"io"
 )
 
-func ReadBlock(file *os.File, block int) []byte {
+func ReadBlock(reader io.ReaderAt, block int) []byte {
 	buffer := make([]byte, 512)
 
-	file.ReadAt(buffer, int64(block)*512)
+	reader.ReadAt(buffer, int64(block)*512)
 
 	return buffer
 }
 
-func WriteBlock(file *os.File, block int, buffer []byte) {
-	WriteBlockNoSync(file, block, buffer)
-	file.Sync()
-}
-
-func WriteBlockNoSync(file *os.File, block int, buffer []byte) {
-	file.WriteAt(buffer, int64(block)*512)
+func WriteBlock(writer io.WriterAt, block int, buffer []byte) {
+	writer.WriteAt(buffer, int64(block)*512)
 }
