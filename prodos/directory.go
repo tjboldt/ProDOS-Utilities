@@ -15,6 +15,7 @@ import (
 	"time"
 )
 
+// VolumeHeader from ProDOS
 type VolumeHeader struct {
 	VolumeName       string
 	CreationTime     time.Time
@@ -28,6 +29,7 @@ type VolumeHeader struct {
 	Version          int
 }
 
+// DirectoryHeader from ProDOS
 type DirectoryHeader struct {
 	Name            string
 	ActiveFileCount int
@@ -45,6 +47,7 @@ const (
 	StorageDirectory = 13
 )
 
+// FileEntry from ProDOS
 type FileEntry struct {
 	StorageType     int
 	FileName        string
@@ -63,6 +66,8 @@ type FileEntry struct {
 	DirectoryOffset int
 }
 
+// ReadDirectory reads the directory information from a specified path
+// on a ProDOS image
 func ReadDirectory(reader io.ReaderAt, path string) (VolumeHeader, DirectoryHeader, []FileEntry) {
 	buffer := ReadBlock(reader, 2)
 

@@ -38,6 +38,7 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 	return buffer, nil
 }
 
+// WriteFile writes a file to a ProDOS volume from a byte array
 func WriteFile(writer io.WriterAt, reader io.ReaderAt, path string, fileType int, auxType int, buffer []byte) error {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 
@@ -61,7 +62,7 @@ func WriteFile(writer io.WriterAt, reader io.ReaderAt, path string, fileType int
 
 	// TODO: add tree file
 	if len(buffer) > 0x20000 {
-		return errors.New("Files > 128KB not supported yet.")
+		return errors.New("files > 128KB not supported yet")
 	}
 
 	updateVolumeBitmap(writer, reader, blockList)
@@ -99,6 +100,7 @@ func WriteFile(writer io.WriterAt, reader io.ReaderAt, path string, fileType int
 	return nil
 }
 
+// DeleteFile deletes a file from a ProDOS volume
 func DeleteFile(writer io.WriterAt, reader io.ReaderAt, path string) error {
 	fileEntry, err := getFileEntry(reader, path)
 	if err != nil {
@@ -137,6 +139,7 @@ func DeleteFile(writer io.WriterAt, reader io.ReaderAt, path string) error {
 	return nil
 }
 
+// GetDirectoryAndFileNameFromPath gets the directory and filename from a path
 func GetDirectoryAndFileNameFromPath(path string) (string, string) {
 	path = strings.ToUpper(path)
 	paths := strings.Split(path, "/")

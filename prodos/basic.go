@@ -121,6 +121,7 @@ var tokens = map[byte]string{
 	0xEA: "MID$",
 }
 
+// ConvertBasicToText converts AppleSoft BASIC to text
 func ConvertBasicToText(basic []byte) string {
 	var builder strings.Builder
 

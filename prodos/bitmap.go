@@ -11,6 +11,7 @@ import (
 	"io"
 )
 
+// ReadVolumeBitmap reads the volume bitmap from a ProDOS image
 func ReadVolumeBitmap(reader io.ReaderAt) []byte {
 	headerBlock := ReadBlock(reader, 2)
 
@@ -38,6 +39,18 @@ func ReadVolumeBitmap(reader io.ReaderAt) []byte {
 	}
 
 	return bitmap
+}
+
+// GetFreeBlockCount gets the number of free blocks on a ProDOS image
+func GetFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
+	freeBlockCount := 0
+
+	for i := 0; i < totalBlocks; i++ {
+		if checkFreeBlockInVolumeBitmap(volumeBitmap, i) {
+			freeBlockCount++
+		}
+	}
+	return freeBlockCount
 }
 
 func writeVolumeBitmap(writer io.WriterAt, reader io.ReaderAt, bitmap []byte) {
@@ -106,17 +119,6 @@ func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 	}
 
 	return nil
-}
-
-func GetFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
-	freeBlockCount := 0
-
-	for i := 0; i < totalBlocks; i++ {
-		if checkFreeBlockInVolumeBitmap(volumeBitmap, i) {
-			freeBlockCount++
-		}
-	}
-	return freeBlockCount
 }
 
 func markBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
