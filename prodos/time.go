@@ -40,7 +40,7 @@ func DateTimeToProDOS(dateTime time.Time) []byte {
 	return buffer
 }
 
-// DateTimeToProDOS converts Time from ProDOS date time
+// DateTimeFromProDOS converts Time from ProDOS date time
 func DateTimeFromProDOS(buffer []byte) time.Time {
 	if buffer[0] == 0 &&
 		buffer[1] == 0 &&
