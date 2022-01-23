@@ -1,11 +1,19 @@
+// Copyright Terence J. Boldt (c)2021-2022
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides access to volum bitmap on
+// a ProDOS drive image
+
 package prodos
 
 import (
-	"os"
+	"io"
 )
 
-func ReadVolumeBitmap(file *os.File) []byte {
-	headerBlock := ReadBlock(file, 2)
+// ReadVolumeBitmap reads the volume bitmap from a ProDOS image
+func ReadVolumeBitmap(reader io.ReaderAt) []byte {
+	headerBlock := ReadBlock(reader, 2)
 
 	volumeHeader := parseVolumeHeader(headerBlock)
 
@@ -23,7 +31,7 @@ func ReadVolumeBitmap(file *os.File) []byte {
 	}
 
 	for i := 0; i < totalBitmapBlocks; i++ {
-		bitmapBlock := ReadBlock(file, i+volumeHeader.BitmapStartBlock)
+		bitmapBlock := ReadBlock(reader, i+volumeHeader.BitmapStartBlock)
 
 		for j := 0; j < 512 && i*512+j < totalBitmapBytes; j++ {
 			bitmap[i*512+j] = bitmapBlock[j]
@@ -33,13 +41,25 @@ func ReadVolumeBitmap(file *os.File) []byte {
 	return bitmap
 }
 
-func writeVolumeBitmap(file *os.File, bitmap []byte) {
-	headerBlock := ReadBlock(file, 2)
+// GetFreeBlockCount gets the number of free blocks on a ProDOS image
+func GetFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
+	freeBlockCount := 0
+
+	for i := 0; i < totalBlocks; i++ {
+		if checkFreeBlockInVolumeBitmap(volumeBitmap, i) {
+			freeBlockCount++
+		}
+	}
+	return freeBlockCount
+}
+
+func writeVolumeBitmap(writer io.WriterAt, reader io.ReaderAt, bitmap []byte) {
+	headerBlock := ReadBlock(reader, 2)
 
 	volumeHeader := parseVolumeHeader(headerBlock)
 
 	for i := 0; i < len(bitmap)/512; i++ {
-		WriteBlock(file, volumeHeader.BitmapStartBlock+i, bitmap[i*512:i*512+512])
+		WriteBlock(writer, volumeHeader.BitmapStartBlock+i, bitmap[i*512:i*512+512])
 	}
 }
 
@@ -99,17 +119,6 @@ func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 	}
 
 	return nil
-}
-
-func GetFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
-	freeBlockCount := 0
-
-	for i := 0; i < totalBlocks; i++ {
-		if checkFreeBlockInVolumeBitmap(volumeBitmap, i) {
-			freeBlockCount++
-		}
-	}
-	return freeBlockCount
 }
 
 func markBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {

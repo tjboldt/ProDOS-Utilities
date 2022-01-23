@@ -1,24 +1,29 @@
+// Copyright Terence J. Boldt (c)2021-2022
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides conversion to and from ProDOS time format
+
 package prodos
 
 import (
 	"time"
 )
 
-/*  49041 ($BF91)     49040 ($BF90)
-
-        7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0
-       +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
-DATE:  |    year     |  month  |   day   |
-       +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
-
-        7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0
-       +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
-TIME:  |    hour       | |    minute     |
-       +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
-
-       49043 ($BF93)     49042 ($BF92)
-*/
-
+// DateTimeToProDOS converts Time to ProDOS date time
+//   49041 ($BF91)     49040 ($BF90)
+//
+//           7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0
+//          +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+//   DATE:  |    year     |  month  |   day   |
+//          +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+//
+//   49043 ($BF93)     49042 ($BF92)
+//
+//           7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0
+//          +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+//   TIME:  |    hour       | |    minute     |
+//          +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
 func DateTimeToProDOS(dateTime time.Time) []byte {
 	year := dateTime.Year() % 100
 	month := dateTime.Month()
@@ -35,6 +40,7 @@ func DateTimeToProDOS(dateTime time.Time) []byte {
 	return buffer
 }
 
+// DateTimeToProDOS converts Time from ProDOS date time
 func DateTimeFromProDOS(buffer []byte) time.Time {
 	if buffer[0] == 0 &&
 		buffer[1] == 0 &&

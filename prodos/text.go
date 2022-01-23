@@ -1,3 +1,10 @@
+// Copyright Terence J. Boldt (c)2021-2022
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides text dumps for directories
+// and blocks
+
 package prodos
 
 import (
@@ -6,6 +13,7 @@ import (
 	"time"
 )
 
+// TimeToString displays the date and time in ProDOS format
 func TimeToString(printTime time.Time) string {
 	return fmt.Sprintf("%04d-%s-%02d %02d:%02d",
 		printTime.Year(),
@@ -16,6 +24,7 @@ func TimeToString(printTime time.Time) string {
 	)
 }
 
+// FileTypeToString display the file type as a string
 func FileTypeToString(fileType int) string {
 	switch fileType {
 	case 1:
@@ -78,6 +87,7 @@ func FileTypeToString(fileType int) string {
 	*/
 }
 
+// DumpFileEntry dumps the file entry values as text
 func DumpFileEntry(fileEntry FileEntry) {
 	fmt.Printf("FileName: %s\n", fileEntry.FileName)
 	fmt.Printf("Creation time: %d-%s-%d %02d:%02d\n", fileEntry.CreationTime.Year(), fileEntry.CreationTime.Month(), fileEntry.CreationTime.Day(), fileEntry.CreationTime.Hour(), fileEntry.CreationTime.Minute())
@@ -92,6 +102,7 @@ func DumpFileEntry(fileEntry FileEntry) {
 	fmt.Printf("\n")
 }
 
+// DumpVolumeHeader dumps the volume header values as text
 func DumpVolumeHeader(volumeHeader VolumeHeader) {
 	fmt.Printf("Next block: %d\n", volumeHeader.NextBlock)
 	fmt.Printf("Volume name: %s\n", volumeHeader.VolumeName)
@@ -105,6 +116,7 @@ func DumpVolumeHeader(volumeHeader VolumeHeader) {
 	fmt.Printf("Total blocks: %d\n", volumeHeader.TotalBlocks)
 }
 
+// DumpDirectoryHeader dumps the directory header as text
 func DumpDirectoryHeader(directoryHeader DirectoryHeader) {
 	fmt.Printf("Name: %s\n", directoryHeader.Name)
 	fmt.Printf("File count: %d\n", directoryHeader.ActiveFileCount)
@@ -113,6 +125,7 @@ func DumpDirectoryHeader(directoryHeader DirectoryHeader) {
 	fmt.Printf("Next block: %04X\n", directoryHeader.NextBlock)
 }
 
+// DumpBlock dumps the block as hexadecimal and text
 func DumpBlock(buffer []byte) {
 	for i := 0; i < len(buffer); i += 16 {
 		fmt.Printf("%04X: ", i)
@@ -131,6 +144,7 @@ func DumpBlock(buffer []byte) {
 	}
 }
 
+// DumpDirectory displays the directory similar to ProDOS catalog
 func DumpDirectory(blocksFree int, totalBlocks int, path string, fileEntries []FileEntry) {
 	fmt.Printf("%s\n\n", path)
 	fmt.Printf("NAME          TYPE BLOCKS  MODIFIED          CREATED           ENDFILE  SUBTYPE\n\n")

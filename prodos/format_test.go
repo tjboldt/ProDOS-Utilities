@@ -2,7 +2,6 @@ package prodos
 
 import (
 	"fmt"
-	"os"
 	"testing"
 )
 
@@ -20,17 +19,9 @@ func TestCreateVolume(t *testing.T) {
 	for _, tt := range tests {
 		testname := fmt.Sprintf("%d", tt.blocks)
 		t.Run(testname, func(t *testing.T) {
-			fileName := os.TempDir() + "/test-volume.hdv"
-			defer os.Remove(fileName)
-			file, err := os.Create(fileName)
-			if err != nil {
-				t.Errorf("failed to create file: %s\n", err)
-				return
-			}
+			file := NewMemoryFile(0x2000000)
 
-			defer file.Close()
-
-			CreateVolume(file, tt.wantVolumeName, tt.blocks)
+			CreateVolume(file, file, tt.wantVolumeName, tt.blocks)
 
 			volumeHeader, _, fileEntries := ReadDirectory(file, "")
 			if volumeHeader.VolumeName != tt.wantVolumeName {

@@ -1,3 +1,9 @@
+// Copyright Terence J. Boldt (c)2021-2022
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides conversion between BASIC and text
+
 package prodos
 
 import (
@@ -115,6 +121,7 @@ var tokens = map[byte]string{
 	0xEA: "MID$",
 }
 
+// ConvertBasicToText converts AppleSoft BASIC to text
 func ConvertBasicToText(basic []byte) string {
 	var builder strings.Builder
 

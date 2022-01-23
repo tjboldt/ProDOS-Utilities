@@ -1,3 +1,9 @@
+// Copyright Terence J. Boldt (c)2021-2022
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides readme for command line utility
+
 package main
 
 import "fmt"
@@ -8,7 +14,7 @@ func printReadme() {
 	fmt.Println(`
 MIT License
 
-Copyright (c) 2021 Terence Boldt
+Copyright (c)2021-2022 Terence Boldt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
