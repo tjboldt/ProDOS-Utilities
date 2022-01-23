@@ -39,11 +39,17 @@ type DirectoryHeader struct {
 }
 
 const (
-	StorageDeleted   = 0
-	StorageSeedling  = 1
-	StorageSapling   = 2
-	StorageTree      = 3
-	StoragePascal    = 4
+	// File is deleted
+	StorageDeleted = 0
+	// File is <= 512 bytes
+	StorageSeedling = 1
+	// File is > 512 bytes and <= 128 KB
+	StorageSapling = 2
+	// File is > 128 KB and <= 16 MB
+	StorageTree = 3
+	// Pacal storage area
+	StoragePascal = 4
+	// Directory
 	StorageDirectory = 13
 )
 
