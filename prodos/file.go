@@ -29,7 +29,10 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 	buffer := make([]byte, fileEntry.EndOfFile)
 
 	for i := 0; i < len(blockList); i++ {
-		block := ReadBlock(reader, blockList[i])
+		block, err := ReadBlock(reader, blockList[i])
+		if err != nil {
+			return nil, err
+		}
 		for j := 0; j < 512 && i*512+j < fileEntry.EndOfFile; j++ {
 			buffer[i*512+j] = block[j]
 		}
@@ -39,25 +42,28 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 }
 
 // WriteFile writes a file to a ProDOS volume from a byte array
-func WriteFile(writer io.WriterAt, reader io.ReaderAt, path string, fileType int, auxType int, buffer []byte) error {
+func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType int, buffer []byte) error {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 
-	existingFileEntry, _ := getFileEntry(reader, path)
+	existingFileEntry, _ := getFileEntry(readerWriter, path)
 	if existingFileEntry.StorageType != StorageDeleted {
-		DeleteFile(writer, reader, path)
+		DeleteFile(readerWriter, path)
 	}
 
 	// get list of blocks to write file to
-	blockList := createBlockList(reader, len(buffer))
+	blockList, err := createBlockList(readerWriter, len(buffer))
+	if err != nil {
+		return err
+	}
 
 	// seedling file
 	if len(buffer) <= 0x200 {
-		WriteBlock(writer, blockList[0], buffer)
+		WriteBlock(readerWriter, blockList[0], buffer)
 	}
 
 	// sapling file needs index block
 	if len(buffer) > 0x200 && len(buffer) <= 0x20000 {
-		writeSaplingFile(writer, buffer, blockList)
+		writeSaplingFile(readerWriter, buffer, blockList)
 	}
 
 	// TODO: add tree file
@@ -65,10 +71,10 @@ func WriteFile(writer io.WriterAt, reader io.ReaderAt, path string, fileType int
 		return errors.New("files > 128KB not supported yet")
 	}
 
-	updateVolumeBitmap(writer, reader, blockList)
+	updateVolumeBitmap(readerWriter, blockList)
 
 	// add file entry to directory
-	fileEntry, err := getFreeFileEntryInDirectory(reader, directory)
+	fileEntry, err := getFreeFileEntryInDirectory(readerWriter, directory)
 	if err != nil {
 		return err
 	}
@@ -89,20 +95,23 @@ func WriteFile(writer io.WriterAt, reader io.ReaderAt, path string, fileType int
 		fileEntry.StorageType = StorageTree
 	}
 
-	writeFileEntry(writer, fileEntry)
+	writeFileEntry(readerWriter, fileEntry)
 
 	// increment file count
-	directoryHeaderBlock := ReadBlock(reader, fileEntry.HeaderPointer)
+	directoryHeaderBlock, err := ReadBlock(readerWriter, fileEntry.HeaderPointer)
+	if err != nil {
+		return err
+	}
 	directoryHeader := parseDirectoryHeader(directoryHeaderBlock, fileEntry.HeaderPointer)
 	directoryHeader.ActiveFileCount++
-	writeDirectoryHeader(writer, reader, directoryHeader)
+	writeDirectoryHeader(readerWriter, directoryHeader)
 
 	return nil
 }
 
 // DeleteFile deletes a file from a ProDOS volume
-func DeleteFile(writer io.WriterAt, reader io.ReaderAt, path string) error {
-	fileEntry, err := getFileEntry(reader, path)
+func DeleteFile(readerWriter ReaderWriterAt, path string) error {
+	fileEntry, err := getFileEntry(readerWriter, path)
 	if err != nil {
 		return errors.New("File not found")
 	}
@@ -114,27 +123,33 @@ func DeleteFile(writer io.WriterAt, reader io.ReaderAt, path string) error {
 	}
 
 	// free the blocks
-	blocks, err := getBlocklist(reader, fileEntry)
+	blocks, err := getBlocklist(readerWriter, fileEntry)
 	if err != nil {
 		return err
 	}
-	volumeBitmap := ReadVolumeBitmap(reader)
+	volumeBitmap, err := ReadVolumeBitmap(readerWriter)
+	if err != nil {
+		return err
+	}
 	for i := 0; i < len(blocks); i++ {
 		freeBlockInVolumeBitmap(volumeBitmap, blocks[i])
 	}
-	writeVolumeBitmap(writer, reader, volumeBitmap)
+	writeVolumeBitmap(readerWriter, volumeBitmap)
 
 	// decrement the directory entry count
-	directoryBlock := ReadBlock(reader, fileEntry.HeaderPointer)
+	directoryBlock, err := ReadBlock(readerWriter, fileEntry.HeaderPointer)
+	if err != nil {
+		return err
+	}
 	directoryHeader := parseDirectoryHeader(directoryBlock, fileEntry.HeaderPointer)
 
 	directoryHeader.ActiveFileCount--
-	writeDirectoryHeader(writer, reader, directoryHeader)
+	writeDirectoryHeader(readerWriter, directoryHeader)
 
 	// zero out directory entry
 	fileEntry.StorageType = 0
 	fileEntry.FileName = ""
-	writeFileEntry(writer, fileEntry)
+	writeFileEntry(readerWriter, fileEntry)
 
 	return nil
 }
@@ -157,12 +172,16 @@ func GetDirectoryAndFileNameFromPath(path string) (string, string) {
 	return directory, fileName
 }
 
-func updateVolumeBitmap(writer io.WriterAt, reader io.ReaderAt, blockList []int) {
-	volumeBitmap := ReadVolumeBitmap(reader)
+func updateVolumeBitmap(readerWriter ReaderWriterAt, blockList []int) error {
+	volumeBitmap, err := ReadVolumeBitmap(readerWriter)
+	if err != nil {
+		return err
+	}
 	for i := 0; i < len(blockList); i++ {
 		markBlockInVolumeBitmap(volumeBitmap, blockList[i])
 	}
-	writeVolumeBitmap(writer, reader, volumeBitmap)
+	writeVolumeBitmap(readerWriter, volumeBitmap)
+	return nil
 }
 
 func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []int) {
@@ -206,17 +225,26 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry) ([]int, error) {
 		blocks[0] = fileEntry.KeyPointer
 		return blocks, nil
 	case StorageSapling:
-		index := ReadBlock(reader, fileEntry.KeyPointer)
+		index, err := ReadBlock(reader, fileEntry.KeyPointer)
+		if err != nil {
+			return nil, err
+		}
 		blocks[0] = fileEntry.KeyPointer
 		for i := 0; i < fileEntry.BlocksUsed-1; i++ {
 			blocks[i+1] = int(index[i]) + int(index[i+256])*256
 		}
 		return blocks, nil
 	case StorageTree:
-		masterIndex := ReadBlock(reader, fileEntry.KeyPointer)
+		masterIndex, err := ReadBlock(reader, fileEntry.KeyPointer)
+		if err != nil {
+			return nil, err
+		}
 		blocks[0] = fileEntry.KeyPointer
 		for i := 0; i < 128; i++ {
-			index := ReadBlock(reader, int(masterIndex[i])+int(masterIndex[i+256])*256)
+			index, err := ReadBlock(reader, int(masterIndex[i])+int(masterIndex[i+256])*256)
+			if err != nil {
+				return nil, err
+			}
 			for j := 0; j < 256 && i*256+j < fileEntry.BlocksUsed; j++ {
 				if (int(index[j]) + int(index[j+256])*256) == 0 {
 					return blocks, nil
@@ -237,7 +265,10 @@ func getDataBlocklist(reader io.ReaderAt, fileEntry FileEntry) ([]int, error) {
 		return blocks, nil
 	case StorageSapling:
 		blocks := make([]int, fileEntry.BlocksUsed-1)
-		index := ReadBlock(reader, fileEntry.KeyPointer)
+		index, err := ReadBlock(reader, fileEntry.KeyPointer)
+		if err != nil {
+			return nil, err
+		}
 		for i := 0; i < fileEntry.BlocksUsed-1; i++ {
 			blocks[i] = int(index[i]) + int(index[i+256])*256
 		}
@@ -247,7 +278,7 @@ func getDataBlocklist(reader io.ReaderAt, fileEntry FileEntry) ([]int, error) {
 	return nil, errors.New("Unsupported file storage type")
 }
 
-func createBlockList(reader io.ReaderAt, fileSize int) []int {
+func createBlockList(reader io.ReaderAt, fileSize int) ([]int, error) {
 	numberOfBlocks := fileSize / 512
 	if fileSize%512 > 0 {
 		numberOfBlocks++
@@ -265,15 +296,21 @@ func createBlockList(reader io.ReaderAt, fileSize int) []int {
 			numberOfBlocks++
 		}
 	}
-	volumeBitmap := ReadVolumeBitmap(reader)
+	volumeBitmap, err := ReadVolumeBitmap(reader)
+	if err != nil {
+		return nil, err
+	}
 	blockList := findFreeBlocks(volumeBitmap, numberOfBlocks)
 
-	return blockList
+	return blockList, nil
 }
 
 func getFileEntry(reader io.ReaderAt, path string) (FileEntry, error) {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
-	_, _, fileEntries := ReadDirectory(reader, directory)
+	_, _, fileEntries, err := ReadDirectory(reader, directory)
+	if err != nil {
+		return FileEntry{}, err
+	}
 
 	if fileEntries == nil || len(fileEntries) == 0 {
 		return FileEntry{}, errors.New("File entry not found")

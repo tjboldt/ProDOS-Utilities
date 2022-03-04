@@ -57,11 +57,18 @@ func main() {
 		}
 		defer file.Close()
 		pathName = strings.ToUpper(pathName)
-		volumeHeader, _, fileEntries := prodos.ReadDirectory(file, pathName)
+		volumeHeader, _, fileEntries, err := prodos.ReadDirectory(file, pathName)
+		if err != nil {
+			fmt.Printf("Error: %s", err)
+		}
 		if len(pathName) == 0 {
 			pathName = "/" + volumeHeader.VolumeName
 		}
-		volumeBitmap := prodos.ReadVolumeBitmap(file)
+		volumeBitmap, err := prodos.ReadVolumeBitmap(file)
+		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
+			os.Exit(1)
+		}
 		freeBlocks := prodos.GetFreeBlockCount(volumeBitmap, volumeHeader.TotalBlocks)
 		prodos.DumpDirectory(freeBlocks, volumeHeader.TotalBlocks, pathName, fileEntries)
 	case "get":
@@ -109,7 +116,7 @@ func main() {
 			fmt.Printf("Failed to open input file %s: %s", inFileName, err)
 			os.Exit(1)
 		}
-		err = prodos.WriteFile(file, file, pathName, fileType, auxType, inFile)
+		err = prodos.WriteFile(file, pathName, fileType, auxType, inFile)
 		if err != nil {
 			fmt.Printf("Failed to write file %s: %s", pathName, err)
 		}
@@ -121,7 +128,11 @@ func main() {
 			os.Exit(1)
 		}
 		defer file.Close()
-		block := prodos.ReadBlock(file, blockNumber)
+		block, err := prodos.ReadBlock(file, blockNumber)
+		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
+			os.Exit(1)
+		}
 		prodos.DumpBlock(block)
 	case "writeblock":
 		fmt.Printf("Writing block 0x%04X (%d):\n\n", blockNumber, blockNumber)
@@ -144,7 +155,7 @@ func main() {
 			return
 		}
 		defer file.Close()
-		prodos.CreateVolume(file, file, volumeName, volumeSize)
+		prodos.CreateVolume(file, volumeName, volumeSize)
 	case "rm":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
@@ -152,7 +163,7 @@ func main() {
 			os.Exit(1)
 		}
 		defer file.Close()
-		prodos.DeleteFile(file, file, pathName)
+		prodos.DeleteFile(file, pathName)
 	default:
 		fmt.Printf("Invalid command: %s\n\n", command)
 		flag.PrintDefaults()
