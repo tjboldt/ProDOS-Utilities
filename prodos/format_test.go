@@ -21,9 +21,9 @@ func TestCreateVolume(t *testing.T) {
 		t.Run(testname, func(t *testing.T) {
 			file := NewMemoryFile(0x2000000)
 
-			CreateVolume(file, file, tt.wantVolumeName, tt.blocks)
+			CreateVolume(file, tt.wantVolumeName, tt.blocks)
 
-			volumeHeader, _, fileEntries := ReadDirectory(file, "")
+			volumeHeader, _, fileEntries, _ := ReadDirectory(file, "")
 			if volumeHeader.VolumeName != tt.wantVolumeName {
 				t.Errorf("got volume name %s, want %s", volumeHeader.VolumeName, tt.wantVolumeName)
 			}
@@ -34,7 +34,7 @@ func TestCreateVolume(t *testing.T) {
 				t.Errorf("got files %d, want 0", len(fileEntries))
 			}
 
-			volumeBitmap := ReadVolumeBitmap(file)
+			volumeBitmap, _ := ReadVolumeBitmap(file)
 			freeBlockCount := GetFreeBlockCount(volumeBitmap, tt.blocks)
 			if freeBlockCount != tt.wantFreeBlocks {
 				t.Errorf("got free blocks: %d, want %d", freeBlockCount, tt.wantFreeBlocks)

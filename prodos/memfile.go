@@ -12,6 +12,11 @@ type MemoryFile struct {
 	size int
 }
 
+type ReaderWriterAt interface {
+	ReadAt(data []byte, offset int64) (int, error)
+	WriteAt(data []byte, offset int64) (int, error)
+}
+
 // NewMemoryFile creates an in-memory file of the specified size in bytes
 func NewMemoryFile(size int) *MemoryFile {
 	return &MemoryFile{make([]byte, size), size}

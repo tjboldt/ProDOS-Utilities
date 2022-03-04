@@ -12,8 +12,11 @@ import (
 )
 
 // ReadVolumeBitmap reads the volume bitmap from a ProDOS image
-func ReadVolumeBitmap(reader io.ReaderAt) []byte {
-	headerBlock := ReadBlock(reader, 2)
+func ReadVolumeBitmap(reader io.ReaderAt) ([]byte, error) {
+	headerBlock, err := ReadBlock(reader, 2)
+	if err != nil {
+		return nil, err
+	}
 
 	volumeHeader := parseVolumeHeader(headerBlock)
 
@@ -31,14 +34,17 @@ func ReadVolumeBitmap(reader io.ReaderAt) []byte {
 	}
 
 	for i := 0; i < totalBitmapBlocks; i++ {
-		bitmapBlock := ReadBlock(reader, i+volumeHeader.BitmapStartBlock)
+		bitmapBlock, err := ReadBlock(reader, i+volumeHeader.BitmapStartBlock)
+		if err != nil {
+			return nil, err
+		}
 
 		for j := 0; j < 512 && i*512+j < totalBitmapBytes; j++ {
 			bitmap[i*512+j] = bitmapBlock[j]
 		}
 	}
 
-	return bitmap
+	return bitmap, nil
 }
 
 // GetFreeBlockCount gets the number of free blocks on a ProDOS image
@@ -53,14 +59,17 @@ func GetFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
 	return freeBlockCount
 }
 
-func writeVolumeBitmap(writer io.WriterAt, reader io.ReaderAt, bitmap []byte) {
-	headerBlock := ReadBlock(reader, 2)
-
+func writeVolumeBitmap(readerWriter ReaderWriterAt, bitmap []byte) error {
+	headerBlock, err := ReadBlock(readerWriter, 2)
+	if err != nil {
+		return err
+	}
 	volumeHeader := parseVolumeHeader(headerBlock)
 
 	for i := 0; i < len(bitmap)/512; i++ {
-		WriteBlock(writer, volumeHeader.BitmapStartBlock+i, bitmap[i*512:i*512+512])
+		WriteBlock(readerWriter, volumeHeader.BitmapStartBlock+i, bitmap[i*512:i*512+512])
 	}
+	return nil
 }
 
 func createVolumeBitmap(numberOfBlocks int) []byte {

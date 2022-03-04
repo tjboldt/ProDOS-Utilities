@@ -8,14 +8,13 @@ package prodos
 
 import (
 	"fmt"
-	"io"
 	"strings"
 	"time"
 )
 
 // CreateVolume formats a new ProDOS volume including boot block,
 // volume bitmap and empty directory
-func CreateVolume(writer io.WriterAt, reader io.ReaderAt, volumeName string, numberOfBlocks int) {
+func CreateVolume(readerWriter ReaderWriterAt, volumeName string, numberOfBlocks int) {
 	if numberOfBlocks > 65535 || numberOfBlocks < 64 {
 		return
 	}
@@ -28,7 +27,7 @@ func CreateVolume(writer io.WriterAt, reader io.ReaderAt, volumeName string, num
 
 	blankBlock := make([]byte, 512)
 	for i := 0; i < numberOfBlocks; i++ {
-		WriteBlock(writer, i, blankBlock)
+		WriteBlock(readerWriter, i, blankBlock)
 	}
 
 	volumeHeader := [43]byte{}
@@ -63,10 +62,10 @@ func CreateVolume(writer io.WriterAt, reader io.ReaderAt, volumeName string, num
 	volumeHeader[0x29] = byte(numberOfBlocks & 0xFF)
 	volumeHeader[0x2A] = byte(numberOfBlocks >> 8)
 
-	writer.WriteAt(volumeHeader[:], 1024)
+	readerWriter.WriteAt(volumeHeader[:], 1024)
 
 	// boot block 0
-	WriteBlock(writer, 0, getBootBlock())
+	WriteBlock(readerWriter, 0, getBootBlock())
 
 	// pointers to volume directory blocks
 	for i := 2; i < 6; i++ {
@@ -83,12 +82,12 @@ func CreateVolume(writer io.WriterAt, reader io.ReaderAt, volumeName string, num
 			pointers[2] = byte(i + 1)
 		}
 		pointers[3] = 0x00
-		writer.WriteAt(pointers, int64(i*512))
+		readerWriter.WriteAt(pointers, int64(i*512))
 	}
 
 	// volume bit map starting at block 6
 	volumeBitmap := createVolumeBitmap(numberOfBlocks)
-	writeVolumeBitmap(writer, reader, volumeBitmap)
+	writeVolumeBitmap(readerWriter, volumeBitmap)
 }
 
 func getBootBlock() []byte {

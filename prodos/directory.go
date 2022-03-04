@@ -74,8 +74,11 @@ type FileEntry struct {
 
 // ReadDirectory reads the directory information from a specified path
 // on a ProDOS image
-func ReadDirectory(reader io.ReaderAt, path string) (VolumeHeader, DirectoryHeader, []FileEntry) {
-	buffer := ReadBlock(reader, 2)
+func ReadDirectory(reader io.ReaderAt, path string) (VolumeHeader, DirectoryHeader, []FileEntry, error) {
+	buffer, err := ReadBlock(reader, 2)
+	if err != nil {
+		return VolumeHeader{}, DirectoryHeader{}, nil, err
+	}
 
 	volumeHeader := parseVolumeHeader(buffer)
 
@@ -86,17 +89,25 @@ func ReadDirectory(reader io.ReaderAt, path string) (VolumeHeader, DirectoryHead
 	path = strings.ToUpper(path)
 	paths := strings.Split(path, "/")
 
-	directoryHeader, fileEntries := getFileEntriesInDirectory(reader, 2, 1, paths)
+	directoryHeader, fileEntries, err := getFileEntriesInDirectory(reader, 2, 1, paths)
+	if err != nil {
+		return VolumeHeader{}, DirectoryHeader{}, nil, err
+	}
 
-	return volumeHeader, directoryHeader, fileEntries
+	return volumeHeader, directoryHeader, fileEntries, nil
 }
 
 func getFreeFileEntryInDirectory(reader io.ReaderAt, directory string) (FileEntry, error) {
-	_, directoryHeader, _ := ReadDirectory(reader, directory)
+	_, directoryHeader, _, err := ReadDirectory(reader, directory)
+	if err != nil {
+		return FileEntry{}, err
+	}
 	//DumpDirectoryHeader(directoryHeader)
 	blockNumber := directoryHeader.StartingBlock
-	buffer := ReadBlock(reader, blockNumber)
-
+	buffer, err := ReadBlock(reader, blockNumber)
+	if err != nil {
+		return FileEntry{}, err
+	}
 	entryOffset := 43 // start at offset after header
 	entryNumber := 2  // header is essentially the first entry so start at 2
 
@@ -109,7 +120,10 @@ func getFreeFileEntryInDirectory(reader io.ReaderAt, directory string) (FileEntr
 				return FileEntry{}, errors.New("No free file entries found")
 			}
 			// else read the next block in the directory
-			buffer = ReadBlock(reader, blockNumber)
+			buffer, err = ReadBlock(reader, blockNumber)
+			if err != nil {
+				return FileEntry{}, nil
+			}
 			entryOffset = 4
 			entryNumber = 1
 		}
@@ -127,8 +141,11 @@ func getFreeFileEntryInDirectory(reader io.ReaderAt, directory string) (FileEntr
 	}
 }
 
-func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath int, paths []string) (DirectoryHeader, []FileEntry) {
-	buffer := ReadBlock(reader, blockNumber)
+func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath int, paths []string) (DirectoryHeader, []FileEntry, error) {
+	buffer, err := ReadBlock(reader, blockNumber)
+	if err != nil {
+		return DirectoryHeader{}, nil, err
+	}
 
 	directoryHeader := parseDirectoryHeader(buffer, blockNumber)
 
@@ -143,7 +160,7 @@ func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath 
 
 	if !matchedDirectory && (currentPath == len(paths)-1) {
 		// path not matched by last path part
-		return DirectoryHeader{}, nil
+		return DirectoryHeader{}, nil, errors.New("path not matched")
 	}
 
 	for {
@@ -151,16 +168,19 @@ func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath 
 			entryOffset = 4
 			entryNumber = 1
 			if blockNumber == 0 {
-				return DirectoryHeader{}, nil
+				return DirectoryHeader{}, nil, nil
 			}
-			buffer = ReadBlock(reader, nextBlock)
+			buffer, err = ReadBlock(reader, nextBlock)
+			if err != nil {
+				return DirectoryHeader{}, nil, err
+			}
 			nextBlock = int(buffer[2]) + int(buffer[3])*256
 		}
 		fileEntry := parseFileEntry(buffer[entryOffset:entryOffset+40], blockNumber, entryOffset)
 
 		if fileEntry.StorageType != StorageDeleted {
 			if matchedDirectory && activeEntries == directoryHeader.ActiveFileCount {
-				return directoryHeader, fileEntries[0:activeEntries]
+				return directoryHeader, fileEntries[0:activeEntries], nil
 			}
 			if matchedDirectory {
 				fileEntries[activeEntries] = fileEntry
@@ -298,8 +318,11 @@ func parseDirectoryHeader(buffer []byte, blockNumber int) DirectoryHeader {
 	return directoryEntry
 }
 
-func writeDirectoryHeader(writer io.WriterAt, reader io.ReaderAt, directoryHeader DirectoryHeader) {
-	buffer := ReadBlock(reader, directoryHeader.StartingBlock)
+func writeDirectoryHeader(readerWriter ReaderWriterAt, directoryHeader DirectoryHeader) error {
+	buffer, err := ReadBlock(readerWriter, directoryHeader.StartingBlock)
+	if err != nil {
+		return err
+	}
 	buffer[0x00] = byte(directoryHeader.PreviousBlock & 0x00FF)
 	buffer[0x01] = byte(directoryHeader.PreviousBlock >> 8)
 	buffer[0x02] = byte(directoryHeader.NextBlock & 0x00FF)
@@ -310,5 +333,7 @@ func writeDirectoryHeader(writer io.WriterAt, reader io.ReaderAt, directoryHeade
 	}
 	buffer[0x25] = byte(directoryHeader.ActiveFileCount & 0x00FF)
 	buffer[0x26] = byte(directoryHeader.ActiveFileCount >> 8)
-	WriteBlock(writer, directoryHeader.StartingBlock, buffer)
+	WriteBlock(readerWriter, directoryHeader.StartingBlock, buffer)
+
+	return nil
 }
