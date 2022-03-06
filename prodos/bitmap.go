@@ -8,6 +8,7 @@
 package prodos
 
 import (
+	"fmt"
 	"io"
 )
 
@@ -64,11 +65,35 @@ func writeVolumeBitmap(readerWriter ReaderWriterAt, bitmap []byte) error {
 	if err != nil {
 		return err
 	}
-	volumeHeader := parseVolumeHeader(headerBlock)
 
-	for i := 0; i < len(bitmap)/512; i++ {
-		WriteBlock(readerWriter, volumeHeader.BitmapStartBlock+i, bitmap[i*512:i*512+512])
+	volumeHeader := parseVolumeHeader(headerBlock)
+	totalBitmapBytes := volumeHeader.TotalBlocks / 8
+	if volumeHeader.TotalBlocks%8 > 0 {
+		totalBitmapBytes++
 	}
+
+	totalBitmapBlocks := totalBitmapBytes / 512
+
+	if totalBitmapBytes%512 > 0 {
+		totalBitmapBlocks++
+	}
+
+	for i := 0; i < totalBitmapBlocks; i++ {
+		bitmapBlock, err := ReadBlock(readerWriter, i+volumeHeader.BitmapStartBlock)
+		if err != nil {
+			return err
+		}
+
+		for j := 0; j < 512 && i*512+j < totalBitmapBytes; j++ {
+			bitmapBlock[j] = bitmap[i*512+j]
+		}
+
+		err = WriteBlock(readerWriter, volumeHeader.BitmapStartBlock+i, bitmapBlock)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -122,6 +147,10 @@ func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 			blocks[blocksFound] = i
 			blocksFound++
 			if blocksFound == numberOfBlocks {
+				for i := 0; i < len(blocks); i++ {
+					fmt.Printf("%04X ", blocks[i])
+				}
+				fmt.Printf("\n")
 				return blocks
 			}
 		}

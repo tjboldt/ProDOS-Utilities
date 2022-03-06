@@ -17,7 +17,7 @@ import (
 	"github.com/tjboldt/ProDOS-Utilities/prodos"
 )
 
-const version = "0.3.0"
+const version = "0.3.1"
 
 func main() {
 	var fileName string
@@ -164,6 +164,15 @@ func main() {
 		}
 		defer file.Close()
 		prodos.DeleteFile(file, pathName)
+	case "dumpfile":
+		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
+			os.Exit(1)
+		}
+		defer file.Close()
+		fileEntry, err := prodos.GetFileEntry(file, pathName)
+		prodos.DumpFileEntry(fileEntry)
 	default:
 		fmt.Printf("Invalid command: %s\n\n", command)
 		flag.PrintDefaults()

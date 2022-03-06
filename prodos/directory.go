@@ -117,7 +117,7 @@ func getFreeFileEntryInDirectory(reader io.ReaderAt, directory string) (FileEntr
 			// if we ran out of blocks in the directory, return empty
 			// TODO: expand the directory to add more entries
 			if blockNumber == 0 {
-				return FileEntry{}, errors.New("No free file entries found")
+				return FileEntry{}, errors.New("no free file entries found")
 			}
 			// else read the next block in the directory
 			buffer, err = ReadBlock(reader, blockNumber)

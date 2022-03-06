@@ -9,6 +9,7 @@ package prodos
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"time"
@@ -16,7 +17,7 @@ import (
 
 // LoadFile loads in a file from a ProDOS volume into a byte array
 func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
-	fileEntry, err := getFileEntry(reader, path)
+	fileEntry, err := GetFileEntry(reader, path)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +46,7 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType int, buffer []byte) error {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 
-	existingFileEntry, _ := getFileEntry(readerWriter, path)
+	existingFileEntry, _ := GetFileEntry(readerWriter, path)
 	if existingFileEntry.StorageType != StorageDeleted {
 		DeleteFile(readerWriter, path)
 	}
@@ -55,6 +56,11 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 	if err != nil {
 		return err
 	}
+
+	for i := 0; i < len(blockList); i++ {
+		fmt.Printf("%04X ", blockList[i])
+	}
+	fmt.Printf("\n")
 
 	// seedling file
 	if len(buffer) <= 0x200 {
@@ -66,9 +72,13 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 		writeSaplingFile(readerWriter, buffer, blockList)
 	}
 
-	// TODO: add tree file
-	if len(buffer) > 0x20000 {
-		return errors.New("files > 128KB not supported yet")
+	// tree file needs master index and index blocks
+	if len(buffer) > 0x20000 && len(buffer) <= 0x1000000 {
+		writeTreeFile(readerWriter, buffer, blockList)
+	}
+
+	if len(buffer) > 0x1000000 {
+		return errors.New("files > 16MB not supported by ProDOS")
 	}
 
 	updateVolumeBitmap(readerWriter, blockList)
@@ -111,15 +121,15 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 
 // DeleteFile deletes a file from a ProDOS volume
 func DeleteFile(readerWriter ReaderWriterAt, path string) error {
-	fileEntry, err := getFileEntry(readerWriter, path)
+	fileEntry, err := GetFileEntry(readerWriter, path)
 	if err != nil {
-		return errors.New("File not found")
+		return errors.New("file not found")
 	}
 	if fileEntry.StorageType == StorageDeleted {
-		return errors.New("File already deleted")
+		return errors.New("file already deleted")
 	}
 	if fileEntry.StorageType == StorageDirectory {
-		return errors.New("Directory deletion not supported")
+		return errors.New("directory deletion not supported")
 	}
 
 	// free the blocks
@@ -173,15 +183,20 @@ func GetDirectoryAndFileNameFromPath(path string) (string, string) {
 }
 
 func updateVolumeBitmap(readerWriter ReaderWriterAt, blockList []int) error {
+	for i := 0; i < len(blockList); i++ {
+		fmt.Printf("%04X ", blockList[i])
+	}
+	fmt.Printf("\n")
+
 	volumeBitmap, err := ReadVolumeBitmap(readerWriter)
 	if err != nil {
+		fmt.Printf("%s", err)
 		return err
 	}
 	for i := 0; i < len(blockList); i++ {
 		markBlockInVolumeBitmap(volumeBitmap, blockList[i])
 	}
-	writeVolumeBitmap(readerWriter, volumeBitmap)
-	return nil
+	return writeVolumeBitmap(readerWriter, volumeBitmap)
 }
 
 func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []int) {
@@ -214,6 +229,10 @@ func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []int) {
 			blockPointer++
 		}
 	}
+}
+
+func writeTreeFile(writer io.WriterAt, buffer []byte, blockList []int) {
+
 }
 
 // Returns all blocks, including index blocks
@@ -273,39 +292,60 @@ func getDataBlocklist(reader io.ReaderAt, fileEntry FileEntry) ([]int, error) {
 			blocks[i] = int(index[i]) + int(index[i+256])*256
 		}
 		return blocks, nil
+		// case StorageTree:
+		// 	blocks := make([]int, fileEntry.BlocksUsed-fileEntry.BlocksUsed/256-1)
+		// 	masterIndex := ReadBlock(reader, fileEntry.KeyPointer)
+		// 	for i := 0; i < 128; i++ {
+		// 		blockNumber := 0
+		// 		blocks[j] = int(index[i]) + int(index[i+256])*256
+
+		// 	}
 	}
 
-	return nil, errors.New("Unsupported file storage type")
+	return nil, errors.New("unsupported file storage type")
 }
 
 func createBlockList(reader io.ReaderAt, fileSize int) ([]int, error) {
 	numberOfBlocks := fileSize / 512
+	//fmt.Printf("Number of blocks %d\n", numberOfBlocks)
+
 	if fileSize%512 > 0 {
+		//fmt.Printf("Adding block for partial usage\n")
 		numberOfBlocks++
 	}
+
 	if fileSize > 0x200 && fileSize <= 0x20000 {
+		//fmt.Printf("Adding index block for sapling file\n")
 		numberOfBlocks++ // add index block
 	}
-	if fileSize > 0x20000 {
-		// add master index block
-		numberOfBlocks++
-		// add index blocks for each 128 blocks
-		numberOfBlocks += numberOfBlocks / 128
+
+	if fileSize > 0x20000 && fileSize < 0x1000000 {
+		//fmt.Printf("Tree file\n")
+		// add index blocks for each 256 blocks
+		numberOfBlocks += numberOfBlocks / 256
 		// add index block for any remaining blocks
-		if numberOfBlocks%128 > 0 {
+		if numberOfBlocks%256 > 0 {
 			numberOfBlocks++
 		}
+		// add master index block
+		numberOfBlocks++
 	}
+	if fileSize > 0x1000000 {
+		return nil, errors.New("file size too large")
+	}
+
 	volumeBitmap, err := ReadVolumeBitmap(reader)
 	if err != nil {
 		return nil, err
 	}
+
+	//fmt.Printf("findFreeBlocks %d\n", numberOfBlocks)
 	blockList := findFreeBlocks(volumeBitmap, numberOfBlocks)
 
 	return blockList, nil
 }
 
-func getFileEntry(reader io.ReaderAt, path string) (FileEntry, error) {
+func GetFileEntry(reader io.ReaderAt, path string) (FileEntry, error) {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 	_, _, fileEntries, err := ReadDirectory(reader, directory)
 	if err != nil {
@@ -313,7 +353,7 @@ func getFileEntry(reader io.ReaderAt, path string) (FileEntry, error) {
 	}
 
 	if fileEntries == nil || len(fileEntries) == 0 {
-		return FileEntry{}, errors.New("File entry not found")
+		return FileEntry{}, errors.New("file entry not found")
 	}
 
 	var fileEntry FileEntry
@@ -325,7 +365,7 @@ func getFileEntry(reader io.ReaderAt, path string) (FileEntry, error) {
 	}
 
 	if fileEntry.StorageType == StorageDeleted {
-		return FileEntry{}, errors.New("File not found")
+		return FileEntry{}, errors.New("file not found")
 	}
 
 	return fileEntry, nil
