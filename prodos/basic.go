@@ -160,3 +160,96 @@ func ConvertBasicToText(basic []byte) string {
 		}
 	}
 }
+
+// func ConvertTextToBasic(text string) ([]byte, error) {
+// 	// convert line endings
+// 	text = strings.Replace(text, "\r\n", "\n", -1)
+// 	text = strings.Replace(text, "\r", "\n", -1)
+
+// 	const startState = 0
+// 	const lineNumberState = 1
+// 	const tokenCheckState = 2
+// 	const literalState = 3
+// 	const stringState = 4
+// 	const dataState = 5
+// 	const endOfLineState = 6
+
+// 	state := startState
+
+// 	currentByte := 0x0801
+// 	var lineNumberString string
+// 	var tokenString string
+
+// 	basicFile := new(bytes.Buffer)
+// 	basicLine := new(bytes.Buffer)
+
+// 	// parse character by character
+// 	for _, c := range text {
+
+// 		// skip initial whitespace and look for the start of a line number
+// 		if state == startState {
+// 			if c == ' ' {
+// 				continue
+// 			}
+// 			if c >= '0' && c <= '9' {
+// 				state = lineNumberState
+// 			} else {
+// 				return nil, errors.New("unexpected character before line number")
+// 			}
+// 		}
+
+// 		// parse line number
+// 		if state == lineNumberState {
+// 			if c >= '0' && c <= '9' {
+// 				lineNumberString += string(c)
+// 			} else {
+// 				lineNumber, err := strconv.ParseUint(lineNumberString, 10, 16)
+// 				if err != nil {
+// 					return nil, err
+// 				}
+// 				basicLine.WriteByte(byte(lineNumber % 256)) // low byte
+// 				basicLine.WriteByte(byte(lineNumber / 256)) // high byte
+// 				tokenString = ""
+// 				tokenByte = 0
+// 				state = tokenCheckState
+// 			}
+// 		}
+
+// 		if state == tokenCheckState {
+// 			// skip initial whitespace
+// 			if c == ' ' && len(tokenString) == 0 {
+// 				continue
+// 			}
+
+// 			// finish parsing token if
+// 			if c == '\n' {
+// 				state = endOfLineState
+// 			} else if c == '"' {
+// 				state = stringState
+// 			}
+
+// 		}
+// 	}
+
+// 	return basicFile.Bytes(), nil
+// }
+
+// func writeTokenOrBytes(parseString string, basicBytes []byte) bool {
+// 	if len(parseString) == 0 {
+// 		return false
+// 	}
+
+// 	upperToken := strings.ToUpper(parseString)
+
+// 	for tokenByte, token := range tokens {
+// 		if upperToken == token {
+// 			return tokenByte
+// 		}
+// 	}
+
+// 	if tokenByte > 0 {
+// 		basicBytes.WriteByte(tokenByte)
+// 	}
+
+// 	return 0
+// }
