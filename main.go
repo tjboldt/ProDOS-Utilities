@@ -117,7 +117,7 @@ func main() {
 			fmt.Printf("Failed to open input file %s: %s", inFileName, err)
 			os.Exit(1)
 		}
-		// Check for AppleSingle file as produced by cc65
+		// Check for an AppleSingle file as produced by cc65
 		if	// Magic number
 			binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
 			// Version number
