@@ -140,7 +140,7 @@ func main() {
 			fileType = int(binary.BigEndian.Uint16(inFile[0x34:]))
 			auxType = int(binary.BigEndian.Uint32(inFile[0x36:]))
 			inFile = inFile[0x3A:]
-			fmt.Printf("Putting AppleSingle (File type: %02X, AuxType: %04X)\n", fileType, auxType)
+			fmt.Printf("AppleSingle (File type: %02X, AuxType: %04X) detected\n", fileType, auxType)
 		}
 		err = prodos.WriteFile(file, pathName, fileType, auxType, inFile)
 		if err != nil {
