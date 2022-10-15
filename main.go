@@ -9,6 +9,7 @@
 package main
 
 import (
+	"encoding/binary"
 	"flag"
 	"fmt"
 	"os"
@@ -115,6 +116,31 @@ func main() {
 		if err != nil {
 			fmt.Printf("Failed to open input file %s: %s", inFileName, err)
 			os.Exit(1)
+		}
+		// Check for an AppleSingle file as produced by cc65
+		if	// Magic number
+			binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
+			// Version number
+			binary.BigEndian.Uint32(inFile[0x04:]) == 0x00020000 &&
+			// Number of entries
+			binary.BigEndian.Uint16(inFile[0x18:]) == 0x0002 &&
+			// Data Fork ID
+			binary.BigEndian.Uint32(inFile[0x1A:]) == 0x00000001 &&
+			// Offset
+			binary.BigEndian.Uint32(inFile[0x1E:]) == 0x0000003A &&
+			// Length
+			binary.BigEndian.Uint32(inFile[0x22:]) == uint32(len(inFile)) - 0x3A &&
+			// ProDOS File Info ID
+			binary.BigEndian.Uint32(inFile[0x26:]) == 0x0000000B &&
+			// Offset
+			binary.BigEndian.Uint32(inFile[0x2A:]) == 0x00000032 &&
+			// Length
+			binary.BigEndian.Uint32(inFile[0x2E:]) == 0x00000008 {
+
+			fileType = int(binary.BigEndian.Uint16(inFile[0x34:]))
+			auxType = int(binary.BigEndian.Uint32(inFile[0x36:]))
+			inFile = inFile[0x3A:]
+			fmt.Printf("AppleSingle (File type: %02X, AuxType: %04X) detected\n", fileType, auxType)
 		}
 		err = prodos.WriteFile(file, pathName, fileType, auxType, inFile)
 		if err != nil {
