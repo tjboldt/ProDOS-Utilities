@@ -200,7 +200,7 @@ func ConvertTextToBasic(text string) ([]byte, error) {
 			}
 		}
 
-		if skipChars > 0 {
+		if skipChars > 0 && c != '\n' {
 			skipChars--
 			continue
 		}

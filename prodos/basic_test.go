@@ -25,7 +25,7 @@ func TestConvertBasicToText(t *testing.T) {
 		t.Run(testname, func(t *testing.T) {
 			text := ConvertBasicToText(tt.basic)
 			if text != tt.want {
-				t.Errorf("\ngot '%#v'\nwant '%#v'\n", []byte(text), []byte(tt.want))
+				t.Errorf("%s\ngot '%#v'\nwant '%#v'\n", testname, []byte(text), []byte(tt.want))
 			}
 		})
 	}
@@ -69,7 +69,7 @@ func TestConvertTextToBasic(t *testing.T) {
 		t.Run(testname, func(t *testing.T) {
 			basic, _ := ConvertTextToBasic(tt.basicText)
 			if bytes.Compare(basic, tt.want) != 0 {
-				t.Errorf("\ngot '%#v'\nwant '%#v'\n", basic, tt.want)
+				t.Errorf("%s\ngot '%#v'\nwant '%#v'\n", testname, basic, tt.want)
 			}
 		})
 	}
