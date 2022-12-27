@@ -7,7 +7,10 @@
 package prodos
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 )
 
@@ -88,7 +91,7 @@ var tokens = map[byte]string{
 	0xC9: "-",
 	0xCA: "*",
 	0xCB: "/",
-	0xCC: ";",
+	//0xCC: ";", // fails if this is there
 	0xCD: "AND",
 	0xCE: "OR",
 	0xCF: ">",
@@ -161,95 +164,123 @@ func ConvertBasicToText(basic []byte) string {
 	}
 }
 
-// func ConvertTextToBasic(text string) ([]byte, error) {
-// 	// convert line endings
-// 	text = strings.Replace(text, "\r\n", "\n", -1)
-// 	text = strings.Replace(text, "\r", "\n", -1)
+func ConvertTextToBasic(text string) ([]byte, error) {
+	// convert line endings
+	text = strings.Replace(text, "\r\n", "\n", -1)
+	text = strings.Replace(text, "\r", "\n", -1)
 
-// 	const startState = 0
-// 	const lineNumberState = 1
-// 	const tokenCheckState = 2
-// 	const literalState = 3
-// 	const stringState = 4
-// 	const dataState = 5
-// 	const endOfLineState = 6
+	starting := true
+	parsingLineNumber := false
+	parsingData := false
+	parsingString := false
+	parsingRem := false
+	foundToken := false
 
-// 	state := startState
+	currentByte := 0x0801
+	var lineNumberString string
 
-// 	currentByte := 0x0801
-// 	var lineNumberString string
-// 	var tokenString string
+	basicFile := new(bytes.Buffer)
+	basicLine := new(bytes.Buffer)
 
-// 	basicFile := new(bytes.Buffer)
-// 	basicLine := new(bytes.Buffer)
+	skipChars := 0
 
-// 	// parse character by character
-// 	for _, c := range text {
+	// parse character by character
+	for index, c := range text {
 
-// 		// skip initial whitespace and look for the start of a line number
-// 		if state == startState {
-// 			if c == ' ' {
-// 				continue
-// 			}
-// 			if c >= '0' && c <= '9' {
-// 				state = lineNumberState
-// 			} else {
-// 				return nil, errors.New("unexpected character before line number")
-// 			}
-// 		}
+		// skip initial whitespace and look for the start of a line number
+		if starting {
+			if c == ' ' {
+				continue
+			}
+			if c >= '0' && c <= '9' {
+				starting = false
+				parsingLineNumber = true
+			} else {
+				return nil, errors.New("unexpected character before line number")
+			}
+		}
 
-// 		// parse line number
-// 		if state == lineNumberState {
-// 			if c >= '0' && c <= '9' {
-// 				lineNumberString += string(c)
-// 			} else {
-// 				lineNumber, err := strconv.ParseUint(lineNumberString, 10, 16)
-// 				if err != nil {
-// 					return nil, err
-// 				}
-// 				basicLine.WriteByte(byte(lineNumber % 256)) // low byte
-// 				basicLine.WriteByte(byte(lineNumber / 256)) // high byte
-// 				tokenString = ""
-// 				tokenByte = 0
-// 				state = tokenCheckState
-// 			}
-// 		}
+		if skipChars > 0 && c != '\n' {
+			skipChars--
+			continue
+		}
 
-// 		if state == tokenCheckState {
-// 			// skip initial whitespace
-// 			if c == ' ' && len(tokenString) == 0 {
-// 				continue
-// 			}
+		// parse line number
+		if parsingLineNumber {
+			if c >= '0' && c <= '9' {
+				lineNumberString += string(c)
+			} else {
+				lineNumber, err := strconv.ParseUint(lineNumberString, 10, 16)
+				if err != nil {
+					return nil, err
+				}
+				basicLine.WriteByte(byte(lineNumber % 256)) // low byte
+				basicLine.WriteByte(byte(lineNumber / 256)) // high byte
+				parsingLineNumber = false
+				lineNumberString = ""
+			}
+		}
 
-// 			// finish parsing token if
-// 			if c == '\n' {
-// 				state = endOfLineState
-// 			} else if c == '"' {
-// 				state = stringState
-// 			}
+		if !parsingLineNumber {
+			if c == '\n' {
+				starting = true
+				parsingLineNumber = false
+				parsingData = false
+				parsingRem = false
+				parsingString = false
+				foundToken = false
+				currentByte += basicLine.Len()
+				currentByte += 3
+				// write address of next line
+				basicFile.WriteByte(byte(currentByte % 256))
+				basicFile.WriteByte(byte(currentByte / 256))
+				// write the line
+				basicFile.Write(basicLine.Bytes())
+				basicFile.WriteByte(0x00)
+				basicLine.Reset()
+			} else if parsingData {
+				basicLine.WriteByte(byte(c))
+			} else if parsingRem {
+				basicLine.WriteByte(byte(c))
+			} else if parsingString {
+				basicLine.WriteByte(byte(c))
+				if c == '"' {
+					parsingString = false
+				}
+			} else if c == '"' {
+				parsingString = true
+				basicLine.WriteByte(byte(c))
+			} else {
+				if c == ' ' {
+					continue
+				}
 
-// 		}
-// 	}
+				for key, token := range tokens {
+					if index < len(text)-len(token) {
+						if text[index:index+len(token)] == token {
+							basicLine.WriteByte(byte(key))
+							skipChars = len(token)
+							foundToken = true
+							if key == 0x83 {
+								parsingData = true
+							}
+							if key == 0xB2 {
+								parsingRem = true
+							}
+						}
+					}
+				}
 
-// 	return basicFile.Bytes(), nil
-// }
+				if foundToken {
+					foundToken = false
+				} else {
+					basicLine.WriteByte(byte(c))
+				}
+			}
+		}
+	}
+	basicFile.WriteByte(0x00)
+	basicFile.WriteByte(0x00)
 
-// func writeTokenOrBytes(parseString string, basicBytes []byte) bool {
-// 	if len(parseString) == 0 {
-// 		return false
-// 	}
-
-// 	upperToken := strings.ToUpper(parseString)
-
-// 	for tokenByte, token := range tokens {
-// 		if upperToken == token {
-// 			return tokenByte
-// 		}
-// 	}
-
-// 	if tokenByte > 0 {
-// 		basicBytes.WriteByte(tokenByte)
-// 	}
-
-// 	return 0
-// }
+	return basicFile.Bytes(), nil
+}

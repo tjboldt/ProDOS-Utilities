@@ -16,7 +16,7 @@ There are binaries here:
 ## Current TODO list
 1. Allow > 128 KB file support
 2. Create/Delete directories
-3. Add file/directory/basic tests
+3. Add file/directory tests
 4. Add rename
 5. Add in-place file/directory moves
 
