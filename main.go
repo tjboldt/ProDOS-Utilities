@@ -39,7 +39,7 @@ func main() {
 	flag.IntVar(&volumeSize, "s", 65535, "Number of blocks to create the volume with (default 65535, 64 to 65535, 0x0040 to 0xFFFF hex input accepted)")
 	flag.StringVar(&volumeName, "v", "NO.NAME", "Specifiy a name for the volume from 1 to 15 characters")
 	flag.IntVar(&blockNumber, "b", 0, "A block number to read/write from 0 to 65535 (0x0000 to 0xFFFF hex input accepted)")
-	flag.IntVar(&fileType, "t", 6, "ProDOS FileType: 0x04 for TXT, 0x06 for BIN, 0xFA for BAS, 0xFF for SYS etc.")
+	flag.IntVar(&fileType, "t", 6, "ProDOS FileType: 0x04 for TXT, 0x06 for BIN, 0xFC for BAS, 0xFF for SYS etc.")
 	flag.IntVar(&auxType, "a", 0x2000, "ProDOS AuxType from 0 to 65535 (0x0000 to 0xFFFF hex input accepted)")
 	flag.Parse()
 
@@ -117,9 +117,15 @@ func main() {
 			fmt.Printf("Failed to open input file %s: %s", inFileName, err)
 			os.Exit(1)
 		}
+		if strings.HasSuffix(strings.ToLower(inFileName), ".bas") {
+			inFile, err = prodos.ConvertTextToBasic(string(inFile))
+			fileType = 0xFC
+			auxType = 0x0801
+		}
+
 		// Check for an AppleSingle file as produced by cc65
-		if	// Magic number
-			binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
+		if // Magic number
+		binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
 			// Version number
 			binary.BigEndian.Uint32(inFile[0x04:]) == 0x00020000 &&
 			// Number of entries
@@ -129,7 +135,7 @@ func main() {
 			// Offset
 			binary.BigEndian.Uint32(inFile[0x1E:]) == 0x0000003A &&
 			// Length
-			binary.BigEndian.Uint32(inFile[0x22:]) == uint32(len(inFile)) - 0x3A &&
+			binary.BigEndian.Uint32(inFile[0x22:]) == uint32(len(inFile))-0x3A &&
 			// ProDOS File Info ID
 			binary.BigEndian.Uint32(inFile[0x26:]) == 0x0000000B &&
 			// Offset
