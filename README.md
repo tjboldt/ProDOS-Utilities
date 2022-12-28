@@ -5,13 +5,7 @@ This project is just starting but is intended to be both a command line tool and
 Being a work in progress, be warned that this code is likely to corrupt drive images so be sure to have backups. Also, command line parameters are likely to change significantly in the future.
 
 ## How to get it
-There are binaries here:
-- [Windows (64 bit)](binaries/windows/intel/ProDOS-Utilities.exe)
-- [macOS (Apple Silicon)](binaries/macos/apple-silicon/ProDOS-Utilities)
-- [macOS (Intel)](binaries/macos/intel/ProDOS-Utilities)
-- [Linux (Intel)](binaries/linux/intel/ProDOS-Utilities)
-- [Linux (ARM64)](binaries/linux/arm64/ProDOS-Utilities)
-- [Linux (ARM32 for Raspberry Pi 1,2, Zero, Zero W, Zero W 2)](binaries/linux/arm32/ProDOS-Utilities)
+There are binaries [here](https://github.com/tjboldt/ProDOS-Utilities/releases/latest)
 
 ## Current TODO list
 1. Allow > 128 KB file support
