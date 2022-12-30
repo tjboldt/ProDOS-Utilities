@@ -8,7 +8,6 @@
 package prodos
 
 import (
-	"fmt"
 	"io"
 )
 
@@ -147,10 +146,6 @@ func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 			blocks[blocksFound] = i
 			blocksFound++
 			if blocksFound == numberOfBlocks {
-				for i := 0; i < len(blocks); i++ {
-					fmt.Printf("%04X ", blocks[i])
-				}
-				fmt.Printf("\n")
 				return blocks
 			}
 		}
