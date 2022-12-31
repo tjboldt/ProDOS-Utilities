@@ -12,6 +12,7 @@ type MemoryFile struct {
 	size int
 }
 
+// ReaderWriterAt is an interface for both ReaderAt and WriterAt combined
 type ReaderWriterAt interface {
 	ReadAt(data []byte, offset int64) (int, error)
 	WriteAt(data []byte, offset int64) (int, error)

@@ -164,6 +164,7 @@ func ConvertBasicToText(basic []byte) string {
 	}
 }
 
+// ConvertTextToBasic converts text to AppleSoft BASIC
 func ConvertTextToBasic(text string) ([]byte, error) {
 	// convert line endings
 	text = strings.Replace(text, "\r\n", "\n", -1)

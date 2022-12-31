@@ -15,10 +15,7 @@ import (
 // from the specified host directory
 func AddFilesFromHostDirectory(
 	readerWriter ReaderWriterAt,
-	directory string,
-	volumeName string,
-	numberOfBlocks int) error {
-	CreateVolume(readerWriter, volumeName, numberOfBlocks)
+	directory string) error {
 
 	files, err := os.ReadDir(directory)
 	if err != nil {

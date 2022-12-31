@@ -17,7 +17,7 @@ import (
 	"github.com/tjboldt/ProDOS-Utilities/prodos"
 )
 
-const version = "0.4.0"
+const version = "0.4.1"
 
 func main() {
 	var fileName string
@@ -155,7 +155,7 @@ func main() {
 			return
 		}
 		defer file.Close()
-		err = prodos.AddFilesFromHostDirectory(file, inFileName, volumeName, volumeSize)
+		err = prodos.AddFilesFromHostDirectory(file, inFileName)
 		if err != nil {
 			fmt.Printf("failed to add host files: %s\n", err)
 			return
