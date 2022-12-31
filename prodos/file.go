@@ -426,6 +426,7 @@ func createBlockList(reader io.ReaderAt, fileSize int) ([]int, error) {
 	return blockList, nil
 }
 
+// GetFileEntry returns a file entry for the given path
 func GetFileEntry(reader io.ReaderAt, path string) (FileEntry, error) {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 	_, _, fileEntries, err := ReadDirectory(reader, directory)
