@@ -7,8 +7,10 @@
 package prodos
 
 import (
+	"encoding/binary"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // AddFilesFromHostDirectory fills the root volume with files
@@ -37,4 +39,91 @@ func AddFilesFromHostDirectory(
 	}
 
 	return nil
+}
+
+// WriteFileFromFile writes a file to a ProDOS volume from a host file
+func WriteFileFromFile(readerWriter ReaderWriterAt, pathName string, fileType int, auxType int, inFileName string) error {
+	inFile, err := os.ReadFile(inFileName)
+	if err != nil {
+		return err
+	}
+
+	if auxType == 0 && fileType == 0 {
+		auxType, fileType, inFile, err = convertFileByType(inFileName, inFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(pathName) == 0 {
+		_, pathName = filepath.Split(inFileName)
+		pathName = strings.ToUpper(pathName)
+		ext := filepath.Ext(pathName)
+		if len(ext) > 0 {
+			switch ext {
+			case ".SYS", ".TXT", ".BAS", ".BIN":
+				pathName = strings.TrimSuffix(pathName, ext)
+			}
+		}
+	}
+
+	return WriteFile(readerWriter, pathName, fileType, auxType, inFile)
+}
+
+func convertFileByType(inFileName string, inFile []byte) (int, int, []byte, error) {
+	fileType := 0x06  // default to BIN
+	auxType := 0x2000 // default to $2000
+
+	var err error
+
+	// Check for an AppleSingle file as produced by cc65
+	if // Magic number
+	binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
+		// Version number
+		binary.BigEndian.Uint32(inFile[0x04:]) == 0x00020000 &&
+		// Number of entries
+		binary.BigEndian.Uint16(inFile[0x18:]) == 0x0002 &&
+		// Data Fork ID
+		binary.BigEndian.Uint32(inFile[0x1A:]) == 0x00000001 &&
+		// Offset
+		binary.BigEndian.Uint32(inFile[0x1E:]) == 0x0000003A &&
+		// Length
+		binary.BigEndian.Uint32(inFile[0x22:]) == uint32(len(inFile))-0x3A &&
+		// ProDOS File Info ID
+		binary.BigEndian.Uint32(inFile[0x26:]) == 0x0000000B &&
+		// Offset
+		binary.BigEndian.Uint32(inFile[0x2A:]) == 0x00000032 &&
+		// Length
+		binary.BigEndian.Uint32(inFile[0x2E:]) == 0x00000008 {
+
+		fileType = int(binary.BigEndian.Uint16(inFile[0x34:]))
+		auxType = int(binary.BigEndian.Uint32(inFile[0x36:]))
+		inFile = inFile[0x3A:]
+	} else {
+		// use extension to determine file type
+		ext := strings.ToUpper(filepath.Ext(inFileName))
+
+		switch ext {
+		case ".BAS":
+			inFile, err = ConvertTextToBasic(string(inFile))
+			fileType = 0xFC
+			auxType = 0x0801
+
+			if err != nil {
+				return 0, 0, nil, err
+			}
+		case ".SYS":
+			fileType = 0xFF
+			auxType = 0x2000
+		case ".BIN":
+			fileType = 0x06
+			auxType = 0x2000
+		case ".TXT":
+			inFile = []byte(strings.ReplaceAll(strings.ReplaceAll(string(inFile), "\r\n", "r"), "\n", "\r"))
+			fileType = 0x04
+			auxType = 0x0000
+		}
+	}
+
+	return auxType, fileType, inFile, err
 }

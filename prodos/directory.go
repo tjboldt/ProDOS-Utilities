@@ -281,7 +281,7 @@ func parseVolumeHeader(buffer []byte) VolumeHeader {
 	bitmapBlock := int(buffer[39]) + int(buffer[40])*256
 	totalBlocks := int(buffer[41]) + int(buffer[42])*256
 
-	if version > 0 || minVersion > 0 {
+	if minVersion > 0 {
 		panic("Unsupported ProDOS version")
 	}
 
