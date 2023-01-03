@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2022
+// Copyright Terence J. Boldt (c)2022-2023
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -30,7 +30,7 @@ func AddFilesFromHostDirectory(
 			return err
 		}
 
-		if !file.IsDir() && info.Size() > 0 && info.Size() <= 0x20000 {
+		if !file.IsDir() && info.Size() > 0 && info.Size() <= 0x1000000 {
 			err = WriteFileFromFile(readerWriter, "", 0, 0, filepath.Join(directory, file.Name()))
 			if err != nil {
 				return err

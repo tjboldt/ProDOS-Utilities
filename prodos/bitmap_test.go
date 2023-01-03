@@ -1,3 +1,10 @@
+// Copyright Terence J. Boldt (c)2021-2023
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides tests for access to volum bitmap on
+// a ProDOS drive image
+
 package prodos
 
 import (

@@ -1,3 +1,9 @@
+// Copyright Terence J. Boldt (c)2022-2023
+// Use of this source code is governed by an MIT
+// license that can be found in the LICENSE file.
+
+// This file provides tests for conversion between BASIC and text
+
 package prodos
 
 import (

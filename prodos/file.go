@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2022
+// Copyright Terence J. Boldt (c)2021-2023
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -257,23 +257,21 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 		return blocks, nil
 	case StorageTree:
 		dataBlocks := make([]int, fileEntry.BlocksUsed)
+		indexBlocks := make([]int, fileEntry.BlocksUsed/256+1)
 		masterIndex, err := ReadBlock(reader, fileEntry.KeyPointer)
 		if err != nil {
 			return nil, err
 		}
-		blockOffset := 0
-		if !dataOnly {
-			blocks[0] = fileEntry.KeyPointer
-			blockOffset = 1
-		}
+		indexBlocks[0] = fileEntry.KeyPointer
+		indexBlockCount := 1
+
 		for i := 0; i < 128; i++ {
 			indexBlock := int(masterIndex[i]) + int(masterIndex[i+256])*256
 			if indexBlock == 0 {
 				break
 			}
-			if !dataOnly {
-				blockOffset++
-			}
+			indexBlocks[indexBlockCount] = indexBlock
+			indexBlockCount++
 			index, err := ReadBlock(reader, indexBlock)
 			if err != nil {
 				return nil, err
@@ -290,7 +288,7 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 			return dataBlocks, nil
 		}
 
-		blocks = append(blocks[blockOffset:], dataBlocks...)
+		blocks = append(indexBlocks, dataBlocks...)
 		return blocks, nil
 	}
 
