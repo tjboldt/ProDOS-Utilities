@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2022
+// Copyright Terence J. Boldt (c)2021-2023
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -281,7 +281,7 @@ func parseVolumeHeader(buffer []byte) VolumeHeader {
 	bitmapBlock := int(buffer[39]) + int(buffer[40])*256
 	totalBlocks := int(buffer[41]) + int(buffer[42])*256
 
-	if version > 0 || minVersion > 0 {
+	if minVersion > 0 {
 		panic("Unsupported ProDOS version")
 	}
 

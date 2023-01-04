@@ -8,11 +8,10 @@ Being a work in progress, be warned that this code is likely to corrupt drive im
 There are binaries [here](https://github.com/tjboldt/ProDOS-Utilities/releases/latest)
 
 ## Current TODO list
-1. Allow > 128 KB file support
-2. Create/Delete directories
-3. Add file/directory tests
-4. Add rename
-5. Add in-place file/directory moves
+1. Create/Delete directories
+2. Add file/directory tests
+3. Add rename
+4. Add in-place file/directory moves
 
 ## Example commands and output
 

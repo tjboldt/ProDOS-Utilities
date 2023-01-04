@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2022
+// Copyright Terence J. Boldt (c)2021-2023
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -11,19 +11,20 @@ import (
 )
 
 // DateTimeToProDOS converts Time to ProDOS date time
-//          49041 ($BF91)     49040 ($BF90)
 //
-//           7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0
-//          +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
-//   DATE:  |    year     |  month  |   day   |
-//          +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+//	       49041 ($BF91)     49040 ($BF90)
 //
-//          49043 ($BF93)     49042 ($BF92)
+//	        7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0
+//	       +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+//	DATE:  |    year     |  month  |   day   |
+//	       +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
 //
-//           7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0
-//          +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
-//   TIME:  |    hour       | |    minute     |
-//          +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+//	       49043 ($BF93)     49042 ($BF92)
+//
+//	        7 6 5 4 3 2 1 0   7 6 5 4 3 2 1 0
+//	       +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
+//	TIME:  |    hour       | |    minute     |
+//	       +-+-+-+-+-+-+-+-+ +-+-+-+-+-+-+-+-+
 func DateTimeToProDOS(dateTime time.Time) []byte {
 	year := dateTime.Year() % 100
 	month := dateTime.Month()
