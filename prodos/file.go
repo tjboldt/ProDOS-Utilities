@@ -59,7 +59,7 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 
 	// seedling file
 	if len(buffer) <= 0x200 {
-		WriteBlock(readerWriter, blockList[0], buffer)
+		writeSeedlingFile(readerWriter, buffer, blockList)
 	}
 
 	// sapling file needs index block
@@ -190,6 +190,10 @@ func updateVolumeBitmap(readerWriter ReaderWriterAt, blockList []int) error {
 	return writeVolumeBitmap(readerWriter, volumeBitmap)
 }
 
+func writeSeedlingFile(writer io.WriterAt, buffer []byte, blockList []int) {
+	WriteBlock(writer, blockList[0], buffer)
+}
+
 func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []int) {
 	// write index block with pointers to data blocks
 	indexBuffer := make([]byte, 512)
@@ -197,6 +201,9 @@ func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []int) {
 		if i < len(blockList)-1 {
 			indexBuffer[i] = byte(blockList[i+1] & 0x00FF)
 			indexBuffer[i+256] = byte(blockList[i+1] >> 8)
+		} else {
+			indexBuffer[i] = 0
+			indexBuffer[i+256] = 0
 		}
 	}
 	WriteBlock(writer, blockList[0], indexBuffer)
@@ -223,6 +230,57 @@ func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []int) {
 }
 
 func writeTreeFile(writer io.WriterAt, buffer []byte, blockList []int) {
+	// write master index block with pointers to index blocks
+	indexBuffer := make([]byte, 512)
+	numberOfIndexBlocks := len(blockList)/256 + 1
+	if len(blockList)%256 == 0 {
+		numberOfIndexBlocks--
+	}
+	for i := 0; i < 256; i++ {
+		if i < numberOfIndexBlocks {
+			indexBuffer[i] = byte(blockList[i+1] & 0x00FF)
+			indexBuffer[i+256] = byte(blockList[i+1] >> 8)
+		} else {
+			indexBuffer[i] = 0
+			indexBuffer[i+256] = 0
+		}
+	}
+	WriteBlock(writer, blockList[0], indexBuffer)
+	numberOfIndexBlocks++
+
+	// write index blocks
+	for i := 0; i < len(blockList)/256+1; i++ {
+		for j := 0; j < 256; j++ {
+			if i*256+j < len(blockList)-numberOfIndexBlocks {
+				indexBuffer[j] = byte(blockList[i*256+numberOfIndexBlocks+j] & 0x00FF)
+				indexBuffer[j+256] = byte(blockList[i*256+j+2] >> 8)
+			} else {
+				indexBuffer[j] = 0
+				indexBuffer[j+256] = 0
+			}
+		}
+		WriteBlock(writer, blockList[i+1], indexBuffer)
+	}
+
+	// write all data blocks
+	blockBuffer := make([]byte, 512)
+	blockPointer := 0
+	blockIndexNumber := numberOfIndexBlocks
+	for i := 0; i < len(buffer); i++ {
+		blockBuffer[blockPointer] = buffer[i]
+		if blockPointer == 511 {
+			WriteBlock(writer, blockList[blockIndexNumber], blockBuffer)
+			blockPointer = 0
+			blockIndexNumber++
+		} else if i == len(buffer)-1 {
+			for j := blockPointer; j < 512; j++ {
+				blockBuffer[j] = 0
+			}
+			WriteBlock(writer, blockList[blockIndexNumber], blockBuffer)
+		} else {
+			blockPointer++
+		}
+	}
 }
 
 func getDataBlocklist(reader io.ReaderAt, fileEntry FileEntry) ([]int, error) {
@@ -257,7 +315,11 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 		return blocks, nil
 	case StorageTree:
 		dataBlocks := make([]int, fileEntry.BlocksUsed)
-		indexBlocks := make([]int, fileEntry.BlocksUsed/256+1)
+		numberOfIndexBlocks := fileEntry.BlocksUsed/256 + 1
+		if fileEntry.BlocksUsed%256 != 0 {
+			numberOfIndexBlocks++
+		}
+		indexBlocks := make([]int, numberOfIndexBlocks)
 		masterIndex, err := ReadBlock(reader, fileEntry.KeyPointer)
 		if err != nil {
 			return nil, err
