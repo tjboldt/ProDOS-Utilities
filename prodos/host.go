@@ -122,6 +122,10 @@ func convertFileByType(inFileName string, inFile []byte) (int, int, []byte, erro
 			inFile = []byte(strings.ReplaceAll(strings.ReplaceAll(string(inFile), "\r\n", "r"), "\n", "\r"))
 			fileType = 0x04
 			auxType = 0x0000
+		case ".JPG", ".PNG":
+			inFile = ConvertImageToHiResMonochrome(inFile)
+			fileType = 0x06
+			auxType = 0x2000
 		}
 	}
 
