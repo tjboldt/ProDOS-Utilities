@@ -8,9 +8,11 @@ package prodos
 
 import (
 	"encoding/binary"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // AddFilesFromHostDirectory fills the root volume with files
@@ -30,8 +32,8 @@ func AddFilesFromHostDirectory(
 			return err
 		}
 
-		if !file.IsDir() && info.Size() > 0 && info.Size() <= 0x1000000 {
-			err = WriteFileFromFile(readerWriter, "", 0, 0, filepath.Join(directory, file.Name()))
+		if file.Name()[0] != '.' && !file.IsDir() && info.Size() > 0 && info.Size() <= 0x1000000 {
+			err = WriteFileFromFile(readerWriter, "", 0, 0, info.ModTime(), filepath.Join(directory, file.Name()))
 			if err != nil {
 				return err
 			}
@@ -42,15 +44,18 @@ func AddFilesFromHostDirectory(
 }
 
 // WriteFileFromFile writes a file to a ProDOS volume from a host file
-func WriteFileFromFile(readerWriter ReaderWriterAt, pathName string, fileType int, auxType int, inFileName string) error {
+func WriteFileFromFile(readerWriter ReaderWriterAt, pathName string, fileType int, auxType int, modifiedTime time.Time, inFileName string) error {
+	fmt.Printf("WriteFileFromFile: %s\n", inFileName)
 	inFile, err := os.ReadFile(inFileName)
 	if err != nil {
+		fmt.Println("failed to read file")
 		return err
 	}
 
 	if auxType == 0 && fileType == 0 {
 		auxType, fileType, inFile, err = convertFileByType(inFileName, inFile)
 		if err != nil {
+			fmt.Println("failed to convert file")
 			return err
 		}
 	}
@@ -67,7 +72,7 @@ func WriteFileFromFile(readerWriter ReaderWriterAt, pathName string, fileType in
 		}
 	}
 
-	return WriteFile(readerWriter, pathName, fileType, auxType, inFile)
+	return WriteFile(readerWriter, pathName, fileType, auxType, time.Now(), modifiedTime, inFile)
 }
 
 func convertFileByType(inFileName string, inFile []byte) (int, int, []byte, error) {
