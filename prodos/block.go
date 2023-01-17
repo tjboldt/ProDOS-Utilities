@@ -8,6 +8,8 @@
 package prodos
 
 import (
+	"errors"
+	"fmt"
 	"io"
 )
 
@@ -16,6 +18,10 @@ func ReadBlock(reader io.ReaderAt, block int) ([]byte, error) {
 	buffer := make([]byte, 512)
 
 	_, err := reader.ReadAt(buffer, int64(block)*512)
+	if err != nil {
+		errString := fmt.Sprintf("failed to read block %04X: %s", block, err.Error())
+		err = errors.New(errString)
+	}
 
 	return buffer, err
 }
@@ -23,5 +29,10 @@ func ReadBlock(reader io.ReaderAt, block int) ([]byte, error) {
 // WriteBlock writes a block to a ProDOS volume from a byte array
 func WriteBlock(writer io.WriterAt, block int, buffer []byte) error {
 	_, err := writer.WriteAt(buffer, int64(block)*512)
+	if err != nil {
+		errString := fmt.Sprintf("failed to write block %04X: %s", block, err.Error())
+		err = errors.New(errString)
+	}
+
 	return err
 }

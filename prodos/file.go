@@ -43,7 +43,7 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 }
 
 // WriteFile writes a file to a ProDOS volume from a byte array
-func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType int, buffer []byte) error {
+func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType int, createdTime time.Time, modifiedTime time.Time, buffer []byte) error {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 
 	existingFileEntry, _ := GetFileEntry(readerWriter, path)
@@ -85,8 +85,8 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 	}
 	fileEntry.FileName = fileName
 	fileEntry.BlocksUsed = len(blockList)
-	fileEntry.CreationTime = time.Now()
-	fileEntry.ModifiedTime = time.Now()
+	fileEntry.CreationTime = createdTime
+	fileEntry.ModifiedTime = modifiedTime
 	fileEntry.AuxType = auxType
 	fileEntry.EndOfFile = len(buffer)
 	fileEntry.FileType = fileType

@@ -107,8 +107,9 @@ func main() {
 			os.Exit(1)
 		}
 		defer file.Close()
+		fileInfo, err := os.Stat(fileName)
 
-		err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, inFileName)
+		err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName)
 		if err != nil {
 			fmt.Printf("Failed to write file %s", err)
 		}
@@ -149,7 +150,7 @@ func main() {
 		defer file.Close()
 		prodos.CreateVolume(file, volumeName, volumeSize)
 	case "putall":
-		file, err := os.Create(fileName)
+		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {
 			fmt.Printf("failed to create file: %s\n", err)
 			return
