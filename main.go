@@ -169,6 +169,18 @@ func main() {
 		}
 		defer file.Close()
 		prodos.DeleteFile(file, pathName)
+	case "mkdir":
+		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+		if err != nil {
+			fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
+			os.Exit(1)
+		}
+		defer file.Close()
+		err = prodos.CreateDirectory(file, pathName)
+		if err != nil {
+			fmt.Printf("failed to create directory %s: %s\n", pathName, err)
+			return
+		}
 	case "dumpfile":
 		file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
 		if err != nil {

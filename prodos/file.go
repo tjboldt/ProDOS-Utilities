@@ -102,7 +102,10 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 
 	writeFileEntry(readerWriter, fileEntry)
 
-	// increment file count
+	return incrementFileCount(readerWriter, fileEntry)
+}
+
+func incrementFileCount(readerWriter ReaderWriterAt, fileEntry FileEntry) error {
 	directoryHeaderBlock, err := ReadBlock(readerWriter, fileEntry.HeaderPointer)
 	if err != nil {
 		return err
