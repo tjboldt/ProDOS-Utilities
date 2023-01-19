@@ -99,6 +99,7 @@ func DumpFileEntry(fileEntry FileEntry) {
 	fmt.Printf("File type: %02X\n", fileEntry.FileType)
 	fmt.Printf("Storage type: %02X\n", fileEntry.StorageType)
 	fmt.Printf("Header pointer: %04X\n", fileEntry.HeaderPointer)
+	fmt.Printf("Access: %04X\n", fileEntry.Access)
 	fmt.Printf("\n")
 }
 
