@@ -52,7 +52,7 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 
 	existingFileEntry, _ := GetFileEntry(readerWriter, path)
 	if existingFileEntry.StorageType != StorageDeleted {
-		DeleteFile(readerWriter, path)
+		return errors.New(("file already exists"))
 	}
 
 	// get list of blocks to write file to
@@ -126,6 +126,10 @@ func incrementFileCount(readerWriter ReaderWriterAt, fileEntry FileEntry) error 
 // DeleteFile deletes a file from a ProDOS volume
 func DeleteFile(readerWriter ReaderWriterAt, path string) error {
 	fileEntry, err := GetFileEntry(readerWriter, path)
+	// DumpFileEntry(fileEntry)
+	// oldDirectoryBlock, _ := ReadBlock(readerWriter, fileEntry.DirectoryBlock)
+	// DumpBlock(oldDirectoryBlock)
+
 	if err != nil {
 		return errors.New("file not found")
 	}
@@ -167,6 +171,12 @@ func DeleteFile(readerWriter ReaderWriterAt, path string) error {
 	writeFileEntry(readerWriter, fileEntry)
 
 	return nil
+}
+
+// FileExists return true if the file exists
+func FileExists(reader io.ReaderAt, path string) (bool, error) {
+	fileEntry, _ := GetFileEntry(reader, path)
+	return fileEntry.StorageType != StorageDeleted, nil
 }
 
 // GetDirectoryAndFileNameFromPath gets the directory and filename from a path

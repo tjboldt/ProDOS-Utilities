@@ -201,7 +201,7 @@ func put(fileName string, pathName string, fileType int, auxType int, inFileName
 	defer file.Close()
 	fileInfo, err := os.Stat(fileName)
 
-	err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName)
+	err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName, false)
 	if err != nil {
 		fmt.Printf("Failed to write file %s", err)
 	}
