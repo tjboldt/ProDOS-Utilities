@@ -100,6 +100,8 @@ func DumpFileEntry(fileEntry FileEntry) {
 	fmt.Printf("Storage type: %02X\n", fileEntry.StorageType)
 	fmt.Printf("Header pointer: %04X\n", fileEntry.HeaderPointer)
 	fmt.Printf("Access: %04X\n", fileEntry.Access)
+	fmt.Printf("Directory block: %04X\n", fileEntry.DirectoryBlock)
+	fmt.Printf("Directory offset: %04X\n", fileEntry.DirectoryOffset)
 	fmt.Printf("\n")
 }
 
@@ -119,11 +121,22 @@ func DumpVolumeHeader(volumeHeader VolumeHeader) {
 
 // DumpDirectoryHeader dumps the directory header as text
 func DumpDirectoryHeader(directoryHeader DirectoryHeader) {
-	fmt.Printf("Name: %s\n", directoryHeader.Name)
-	fmt.Printf("File count: %d\n", directoryHeader.ActiveFileCount)
 	fmt.Printf("Starting block: %04X\n", directoryHeader.StartingBlock)
 	fmt.Printf("Previous block: %04X\n", directoryHeader.PreviousBlock)
 	fmt.Printf("Next block: %04X\n", directoryHeader.NextBlock)
+	fmt.Printf("Is subdirectory: %t\n", directoryHeader.IsSubDirectory)
+	fmt.Printf("Name: %s\n", directoryHeader.Name)
+	fmt.Printf("Creation time: %s\n", TimeToString(directoryHeader.CreationTime))
+	fmt.Printf("Version: %02X\n", directoryHeader.Version)
+	fmt.Printf("MinVersion: %02X\n", directoryHeader.MinVersion)
+	fmt.Printf("Access: %02X\n", directoryHeader.Access)
+	fmt.Printf("Entry length: %02X\n", directoryHeader.EntryLength)
+	fmt.Printf("Entries per block: %02X\n", directoryHeader.EntriesPerBlock)
+	fmt.Printf("File count: %d\n", directoryHeader.ActiveFileCount)
+	fmt.Printf("Active file count: %04X\n", directoryHeader.ActiveFileCount)
+	fmt.Printf("Parent block: %04X\n", directoryHeader.ParentBlock)
+	fmt.Printf("Parent entry: %02X\n", directoryHeader.ParentEntry)
+	fmt.Printf("Parent entry length: %02X\n", directoryHeader.ParentEntryLength)
 }
 
 // DumpBlock dumps the block as hexadecimal and text

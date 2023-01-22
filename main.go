@@ -32,7 +32,7 @@ func main() {
 	var auxType int
 	flag.StringVar(&fileName, "d", "", "A ProDOS format drive image")
 	flag.StringVar(&pathName, "p", "", "Path name in ProDOS drive image (default is root of volume)")
-	flag.StringVar(&command, "c", "ls", "Command to execute: ls, get, put, rm, mkdir, readblock, writeblock, create, putall")
+	flag.StringVar(&command, "c", "ls", "Command to execute: ls, get, put, rm, mkdir, readblock, writeblock, create, putall, putallrecursive")
 	flag.StringVar(&outFileName, "o", "", "Name of file to write")
 	flag.StringVar(&inFileName, "i", "", "Name of file to read")
 	flag.IntVar(&volumeSize, "s", 65535, "Number of blocks to create the volume with (default 65535, 64 to 65535, 0x0040 to 0xFFFF hex input accepted)")
@@ -62,13 +62,17 @@ func main() {
 	case "create":
 		create(fileName, volumeName, volumeSize)
 	case "putall":
-		putall(fileName, inFileName)
+		putall(fileName, inFileName, pathName, false)
+	case "putallrecursive":
+		putall(fileName, inFileName, pathName, true)
 	case "rm":
 		rm(fileName, pathName)
 	case "mkdir":
 		mkdir(fileName, pathName)
 	case "dumpfile":
 		dumpFile(fileName, pathName)
+	case "dumpdirectory":
+		dumpDirectory(fileName, pathName)
 	default:
 		fmt.Printf("Invalid command: %s\n\n", command)
 		flag.PrintDefaults()
@@ -86,6 +90,18 @@ func dumpFile(fileName string, pathName string) {
 	defer file.Close()
 	fileEntry, err := prodos.GetFileEntry(file, pathName)
 	prodos.DumpFileEntry(fileEntry)
+}
+
+func dumpDirectory(fileName string, pathName string) {
+	checkPathName(pathName)
+	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+	if err != nil {
+		fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
+		os.Exit(1)
+	}
+	defer file.Close()
+	_, directoryheader, _, err := prodos.ReadDirectory(file, pathName)
+	prodos.DumpDirectoryHeader(directoryheader)
 }
 
 func mkdir(fileName string, pathName string) {
@@ -114,7 +130,7 @@ func rm(fileName string, pathName string) {
 	prodos.DeleteFile(file, pathName)
 }
 
-func putall(fileName string, inFileName string) {
+func putall(fileName string, inFileName string, pathName string, recursive bool) {
 	if len(inFileName) == 0 {
 		inFileName = "."
 	}
@@ -124,7 +140,7 @@ func putall(fileName string, inFileName string) {
 		os.Exit(1)
 	}
 	defer file.Close()
-	err = prodos.AddFilesFromHostDirectory(file, inFileName)
+	err = prodos.AddFilesFromHostDirectory(file, inFileName, pathName, recursive)
 	if err != nil {
 		fmt.Printf("failed to add host files: %s\n", err)
 		os.Exit(1)

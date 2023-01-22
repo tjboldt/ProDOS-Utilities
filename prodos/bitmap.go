@@ -131,7 +131,6 @@ func createVolumeBitmap(numberOfBlocks int) []byte {
 			markBlockInVolumeBitmap(volumeBitmap, i)
 		}
 	}
-	//DumpBlock(volumeBitmap)
 
 	return volumeBitmap
 }

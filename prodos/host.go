@@ -8,6 +8,7 @@ package prodos
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,7 +20,15 @@ import (
 // from the specified host directory
 func AddFilesFromHostDirectory(
 	readerWriter ReaderWriterAt,
-	directory string) error {
+	directory string,
+	path string,
+	recursive bool) error {
+
+	path, err := makeFullPath(path, readerWriter)
+
+	if !strings.HasSuffix(path, "/") {
+		path = path + "/"
+	}
 
 	files, err := os.ReadDir(directory)
 	if err != nil {
@@ -33,10 +42,22 @@ func AddFilesFromHostDirectory(
 		}
 
 		if file.Name()[0] != '.' && !file.IsDir() && info.Size() > 0 && info.Size() <= 0x1000000 {
-			err = WriteFileFromFile(readerWriter, "", 0, 0, info.ModTime(), filepath.Join(directory, file.Name()))
+			err = WriteFileFromFile(readerWriter, path, 0, 0, info.ModTime(), filepath.Join(directory, file.Name()))
 			if err != nil {
 				return err
 			}
+		}
+
+		if file.Name()[0] != '.' && recursive && file.IsDir() {
+			newPath := file.Name()
+			if len(newPath) > 15 {
+				newPath = newPath[0:15]
+			}
+			newFullPath := strings.ToUpper(path + newPath)
+
+			newHostDirectory := filepath.Join(directory, file.Name())
+			CreateDirectory(readerWriter, newFullPath)
+			AddFilesFromHostDirectory(readerWriter, newHostDirectory, newFullPath+"/", recursive)
 		}
 	}
 
@@ -44,26 +65,44 @@ func AddFilesFromHostDirectory(
 }
 
 // WriteFileFromFile writes a file to a ProDOS volume from a host file
-func WriteFileFromFile(readerWriter ReaderWriterAt, pathName string, fileType int, auxType int, modifiedTime time.Time, inFileName string) error {
-	fmt.Printf("WriteFileFromFile: %s\n", inFileName)
+func WriteFileFromFile(
+	readerWriter ReaderWriterAt,
+	pathName string,
+	fileType int,
+	auxType int,
+	modifiedTime time.Time,
+	inFileName string) error {
+
 	inFile, err := os.ReadFile(inFileName)
 	if err != nil {
-		fmt.Println("failed to read file")
-		return err
+		errString := fmt.Sprintf("write from file failed: %s", err)
+		return errors.New(errString)
 	}
 
 	if auxType == 0 && fileType == 0 {
 		auxType, fileType, inFile, err = convertFileByType(inFileName, inFile)
 		if err != nil {
-			fmt.Println("failed to convert file")
-			return err
+			errString := fmt.Sprintf("failed to convert file: %s", err)
+			return errors.New(errString)
 		}
 	}
 
+	trimExtensions := false
 	if len(pathName) == 0 {
 		_, pathName = filepath.Split(inFileName)
 		pathName = strings.ToUpper(pathName)
+		trimExtensions = true
+	}
+
+	if strings.HasSuffix(pathName, "/") {
+		trimExtensions = true
+		_, fileName := filepath.Split(inFileName)
+		pathName = strings.ToUpper(pathName + fileName)
+	}
+
+	if trimExtensions {
 		ext := filepath.Ext(pathName)
+
 		if len(ext) > 0 {
 			switch ext {
 			case ".SYS", ".TXT", ".BAS", ".BIN":
@@ -72,6 +111,13 @@ func WriteFileFromFile(readerWriter ReaderWriterAt, pathName string, fileType in
 		}
 	}
 
+	paths := strings.SplitAfter(pathName, "/")
+	if len(paths[len(paths)-1]) > 15 {
+		paths[len(paths)-1] = paths[len(paths)-1][0:15]
+		pathName = strings.Join(paths, "")
+	}
+
+	fmt.Printf("Source: %s Destination: %s\n", inFileName, pathName)
 	return WriteFile(readerWriter, pathName, fileType, auxType, time.Now(), modifiedTime, inFile)
 }
 

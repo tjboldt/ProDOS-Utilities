@@ -46,6 +46,10 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType int, createdTime time.Time, modifiedTime time.Time, buffer []byte) error {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 
+	if len(fileName) > 15 {
+		return errors.New("filename too long")
+	}
+
 	existingFileEntry, _ := GetFileEntry(readerWriter, path)
 	if existingFileEntry.StorageType != StorageDeleted {
 		DeleteFile(readerWriter, path)
@@ -91,6 +95,8 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 	fileEntry.EndOfFile = len(buffer)
 	fileEntry.FileType = fileType
 	fileEntry.KeyPointer = blockList[0]
+	fileEntry.Version = 0x24
+	fileEntry.MinVersion = 0x00
 	fileEntry.Access = 0b11100011
 	if len(blockList) == 1 {
 		fileEntry.StorageType = StorageSeedling
@@ -135,6 +141,7 @@ func DeleteFile(readerWriter ReaderWriterAt, path string) error {
 	if err != nil {
 		return err
 	}
+
 	volumeBitmap, err := ReadVolumeBitmap(readerWriter)
 	if err != nil {
 		return err
@@ -307,26 +314,27 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 		if err != nil {
 			return nil, err
 		}
-		blockOffset := 0
-		if !dataOnly {
-			blocks[0] = fileEntry.KeyPointer
-			blockOffset = 1
-		}
+		blockOffset := 1
+		blocks[0] = fileEntry.KeyPointer
 		for i := 0; i < fileEntry.BlocksUsed-1; i++ {
 			blocks[i+blockOffset] = int(index[i]) + int(index[i+256])*256
 		}
+		if dataOnly {
+			return blocks[1:], nil
+		}
 		return blocks, nil
 	case StorageTree:
+		// this is actually too large
 		dataBlocks := make([]int, fileEntry.BlocksUsed)
-		numberOfIndexBlocks := fileEntry.BlocksUsed/256 + 1
-		if fileEntry.BlocksUsed%256 != 0 {
-			numberOfIndexBlocks++
-		}
+		// this is also actually too large
+		numberOfIndexBlocks := fileEntry.BlocksUsed/256 + 2
 		indexBlocks := make([]int, numberOfIndexBlocks)
 		masterIndex, err := ReadBlock(reader, fileEntry.KeyPointer)
 		if err != nil {
 			return nil, err
 		}
+		numberOfDataBlocks := 0
+
 		indexBlocks[0] = fileEntry.KeyPointer
 		indexBlockCount := 1
 
@@ -345,6 +353,7 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 				if (int(index[j]) + int(index[j+256])*256) == 0 {
 					break
 				}
+				numberOfDataBlocks++
 				dataBlocks[i*256+j] = int(index[j]) + int(index[j+256])*256
 			}
 		}
@@ -353,7 +362,7 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 			return dataBlocks, nil
 		}
 
-		blocks = append(indexBlocks, dataBlocks...)
+		blocks = append(indexBlocks[0:numberOfIndexBlocks], dataBlocks[0:numberOfDataBlocks]...)
 		return blocks, nil
 	}
 
@@ -392,7 +401,7 @@ func createBlockList(reader io.ReaderAt, fileSize int) ([]int, error) {
 
 	blockList := findFreeBlocks(volumeBitmap, numberOfBlocks)
 
-	return blockList, nil
+	return blockList[0:numberOfBlocks], nil
 }
 
 // GetFileEntry returns a file entry for the given path
