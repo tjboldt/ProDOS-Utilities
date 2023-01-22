@@ -248,6 +248,7 @@ func getFreeFileEntryInDirectory(readerWriter ReaderWriterAt, directory string) 
 		fileEntry := parseFileEntry(buffer[entryOffset:entryOffset+0x28], blockNumber, entryOffset)
 
 		if fileEntry.StorageType == StorageDeleted {
+			fileEntry = FileEntry{}
 			fileEntry.DirectoryBlock = blockNumber
 			fileEntry.DirectoryOffset = entryOffset
 			fileEntry.HeaderPointer = directoryHeader.StartingBlock

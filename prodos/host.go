@@ -22,7 +22,8 @@ func AddFilesFromHostDirectory(
 	readerWriter ReaderWriterAt,
 	directory string,
 	path string,
-	recursive bool) error {
+	recursive bool,
+) error {
 
 	path, err := makeFullPath(path, readerWriter)
 
@@ -42,7 +43,7 @@ func AddFilesFromHostDirectory(
 		}
 
 		if file.Name()[0] != '.' && !file.IsDir() && info.Size() > 0 && info.Size() <= 0x1000000 {
-			err = WriteFileFromFile(readerWriter, path, 0, 0, info.ModTime(), filepath.Join(directory, file.Name()))
+			err = WriteFileFromFile(readerWriter, path, 0, 0, info.ModTime(), filepath.Join(directory, file.Name()), true)
 			if err != nil {
 				return err
 			}
@@ -56,8 +57,14 @@ func AddFilesFromHostDirectory(
 			newFullPath := strings.ToUpper(path + newPath)
 
 			newHostDirectory := filepath.Join(directory, file.Name())
-			CreateDirectory(readerWriter, newFullPath)
-			AddFilesFromHostDirectory(readerWriter, newHostDirectory, newFullPath+"/", recursive)
+			err = CreateDirectory(readerWriter, newFullPath)
+			if err != nil {
+				return err
+			}
+			err = AddFilesFromHostDirectory(readerWriter, newHostDirectory, newFullPath+"/", recursive)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -71,7 +78,9 @@ func WriteFileFromFile(
 	fileType int,
 	auxType int,
 	modifiedTime time.Time,
-	inFileName string) error {
+	inFileName string,
+	ignoreDuplicates bool,
+) error {
 
 	inFile, err := os.ReadFile(inFileName)
 	if err != nil {
@@ -117,7 +126,17 @@ func WriteFileFromFile(
 		pathName = strings.Join(paths, "")
 	}
 
-	fmt.Printf("Source: %s Destination: %s\n", inFileName, pathName)
+	// skip if file already exists and ignoring duplicates
+	if ignoreDuplicates {
+		exists, err := FileExists(readerWriter, pathName)
+		if err != nil {
+			return err
+		}
+		if exists {
+			return nil
+		}
+	}
+
 	return WriteFile(readerWriter, pathName, fileType, auxType, time.Now(), modifiedTime, inFile)
 }
 
