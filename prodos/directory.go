@@ -33,6 +33,7 @@ type VolumeHeader struct {
 type DirectoryHeader struct {
 	PreviousBlock     int
 	NextBlock         int
+	IsSubDirectory    bool
 	Name              string
 	CreationTime      time.Time
 	Version           int
@@ -64,19 +65,20 @@ const (
 
 // FileEntry from ProDOS
 type FileEntry struct {
-	StorageType     int
-	FileName        string
-	FileType        int
-	CreationTime    time.Time
-	KeyPointer      int
-	Version         int
-	MinVersion      int
-	BlocksUsed      int
-	EndOfFile       int
-	Access          int
-	AuxType         int
-	ModifiedTime    time.Time
-	HeaderPointer   int
+	StorageType   int
+	FileName      string
+	FileType      int
+	CreationTime  time.Time
+	KeyPointer    int
+	Version       int
+	MinVersion    int
+	BlocksUsed    int
+	EndOfFile     int
+	Access        int
+	AuxType       int
+	ModifiedTime  time.Time
+	HeaderPointer int
+
 	DirectoryBlock  int
 	DirectoryOffset int
 }
@@ -95,6 +97,11 @@ func ReadDirectory(reader io.ReaderAt, path string) (VolumeHeader, DirectoryHead
 		path = fmt.Sprintf("/%s", volumeHeader.VolumeName)
 	}
 
+	// add volume name if not full path
+	if !strings.HasPrefix(path, "/") {
+		path = fmt.Sprintf("/%s/%s", volumeHeader.VolumeName, path)
+	}
+
 	path = strings.ToUpper(path)
 	paths := strings.Split(path, "/")
 
@@ -106,12 +113,23 @@ func ReadDirectory(reader io.ReaderAt, path string) (VolumeHeader, DirectoryHead
 	return volumeHeader, directoryHeader, fileEntries, nil
 }
 
+// CreateDirectory creates a directory information of a specified path
+// on a ProDOS image
 func CreateDirectory(readerWriter ReaderWriterAt, path string) error {
+	if len(path) == 0 {
+		return errors.New("cannot create directory with path")
+	}
+
+	// add volume name if not full path
+	path, err := makeFullPath(path, readerWriter)
+	if err != nil {
+		return err
+	}
+
 	parentPath, newDirectory := GetDirectoryAndFileNameFromPath(path)
 
 	existingFileEntry, _ := GetFileEntry(readerWriter, path)
 	if existingFileEntry.StorageType != StorageDeleted {
-		//DeleteFile(readerWriter, path)
 		return errors.New("directory already exists")
 	}
 
@@ -140,6 +158,8 @@ func CreateDirectory(readerWriter ReaderWriterAt, path string) error {
 	fileEntry.KeyPointer = blockList[0]
 	fileEntry.Access = 0b11100011
 	fileEntry.StorageType = StorageDirectory
+	fileEntry.Version = 0x24
+	fileEntry.MinVersion = 0x00
 
 	writeFileEntry(readerWriter, fileEntry)
 
@@ -152,6 +172,7 @@ func CreateDirectory(readerWriter ReaderWriterAt, path string) error {
 	directoryEntry := DirectoryHeader{
 		PreviousBlock:     0,
 		NextBlock:         0,
+		IsSubDirectory:    true,
 		Name:              newDirectory,
 		CreationTime:      time.Now(),
 		Version:           0x24,
@@ -162,7 +183,7 @@ func CreateDirectory(readerWriter ReaderWriterAt, path string) error {
 		ActiveFileCount:   0,
 		StartingBlock:     blockList[0],
 		ParentBlock:       fileEntry.DirectoryBlock,
-		ParentEntry:       fileEntry.DirectoryOffset,
+		ParentEntry:       (fileEntry.DirectoryOffset - 0x04) / 0x27,
 		ParentEntryLength: 0x27,
 	}
 
@@ -175,14 +196,26 @@ func CreateDirectory(readerWriter ReaderWriterAt, path string) error {
 	return nil
 }
 
-func getFreeFileEntryInDirectory(reader io.ReaderAt, directory string) (FileEntry, error) {
-	_, directoryHeader, _, err := ReadDirectory(reader, directory)
+func makeFullPath(path string, reader io.ReaderAt) (string, error) {
+	if !strings.HasPrefix(path, "/") {
+		buffer, err := ReadBlock(reader, 0x0002)
+		if err != nil {
+			return "", err
+		}
+
+		volumeHeader := parseVolumeHeader(buffer)
+		path = fmt.Sprintf("/%s/%s", volumeHeader.VolumeName, path)
+	}
+	return path, nil
+}
+
+func getFreeFileEntryInDirectory(readerWriter ReaderWriterAt, directory string) (FileEntry, error) {
+	_, directoryHeader, _, err := ReadDirectory(readerWriter, directory)
 	if err != nil {
 		return FileEntry{}, err
 	}
-	//DumpDirectoryHeader(directoryHeader)
 	blockNumber := directoryHeader.StartingBlock
-	buffer, err := ReadBlock(reader, blockNumber)
+	buffer, err := ReadBlock(readerWriter, blockNumber)
 	if err != nil {
 		return FileEntry{}, err
 	}
@@ -191,21 +224,28 @@ func getFreeFileEntryInDirectory(reader io.ReaderAt, directory string) (FileEntr
 
 	for {
 		if entryNumber > 13 {
-			blockNumber = int(buffer[2]) + int(buffer[3])*256
-			// if we ran out of blocks in the directory, return empty
-			// TODO: expand the directory to add more entries
-			if blockNumber == 0 {
-				return FileEntry{}, errors.New("no free file entries found")
+			nextBlockNumber := int(buffer[2]) + int(buffer[3])*256
+			// if we ran out of blocks in the directory, expand directory or fail
+			if nextBlockNumber == 0 {
+				if !directoryHeader.IsSubDirectory {
+					return FileEntry{}, errors.New("no free file entries found")
+				}
+				nextBlockNumber, err = expandDirectory(readerWriter, nextBlockNumber, buffer, blockNumber, directoryHeader)
+				if err != nil {
+					return FileEntry{}, err
+				}
 			}
+			blockNumber = nextBlockNumber
 			// else read the next block in the directory
-			buffer, err = ReadBlock(reader, blockNumber)
+			buffer, err = ReadBlock(readerWriter, blockNumber)
 			if err != nil {
 				return FileEntry{}, nil
 			}
+
 			entryOffset = 4
 			entryNumber = 1
 		}
-		fileEntry := parseFileEntry(buffer[entryOffset:entryOffset+40], blockNumber, entryOffset)
+		fileEntry := parseFileEntry(buffer[entryOffset:entryOffset+0x28], blockNumber, entryOffset)
 
 		if fileEntry.StorageType == StorageDeleted {
 			fileEntry.DirectoryBlock = blockNumber
@@ -217,6 +257,51 @@ func getFreeFileEntryInDirectory(reader io.ReaderAt, directory string) (FileEntr
 		entryNumber++
 		entryOffset += 39
 	}
+}
+
+func expandDirectory(readerWriter ReaderWriterAt, nextBlockNumber int, buffer []byte, blockNumber int, directoryHeader DirectoryHeader) (int, error) {
+	volumeBitMap, err := ReadVolumeBitmap(readerWriter)
+	if err != nil {
+		errString := fmt.Sprintf("failed to get volume bitmap to expand directory: %s", err)
+		return 0, errors.New(errString)
+	}
+	blockList := findFreeBlocks(volumeBitMap, 1)
+	if len(blockList) != 1 {
+		return 0, errors.New("failed to get free block to expand directory")
+	}
+
+	nextBlockNumber = blockList[0]
+	buffer[0x02] = byte(nextBlockNumber & 0x00FF)
+	buffer[0x03] = byte(nextBlockNumber >> 8)
+	WriteBlock(readerWriter, blockNumber, buffer)
+	if err != nil {
+		errString := fmt.Sprintf("failed to write block to expand directory: %s", err)
+		return 0, errors.New(errString)
+	}
+
+	buffer = make([]byte, 0x200)
+	buffer[0x00] = byte(blockNumber & 0x00FF)
+	buffer[0x01] = byte(blockNumber >> 8)
+	err = WriteBlock(readerWriter, nextBlockNumber, buffer)
+	if err != nil {
+		errString := fmt.Sprintf("failed to write new block to expand directory: %s", err)
+		return 0, errors.New(errString)
+	}
+
+	updateVolumeBitmap(readerWriter, blockList)
+
+	buffer, err = ReadBlock(readerWriter, directoryHeader.ParentBlock)
+	if err != nil {
+		errString := fmt.Sprintf("failed to read parent block to expand directory: %s", err)
+		return 0, errors.New(errString)
+	}
+	directoryEntryOffset := directoryHeader.ParentEntry*directoryHeader.EntryLength + 0x04
+	directoryFileEntry := parseFileEntry(buffer[directoryEntryOffset:directoryEntryOffset+0x28], directoryHeader.ParentBlock, directoryHeader.ParentEntry*directoryHeader.EntryLength+0x04)
+	directoryFileEntry.BlocksUsed++
+	directoryFileEntry.EndOfFile += 0x200
+	writeFileEntry(readerWriter, directoryFileEntry)
+
+	return nextBlockNumber, nil
 }
 
 func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath int, paths []string) (DirectoryHeader, []FileEntry, error) {
@@ -333,13 +418,14 @@ func writeFileEntry(writer io.WriterAt, fileEntry FileEntry) {
 	buffer[0x1E] = byte(fileEntry.Access)
 	buffer[0x1F] = byte(fileEntry.AuxType & 0x00FF)
 	buffer[0x20] = byte(fileEntry.AuxType >> 8)
-	modifiedTime := DateTimeToProDOS(fileEntry.CreationTime)
+	modifiedTime := DateTimeToProDOS(fileEntry.ModifiedTime)
 	for i := 0; i < 4; i++ {
 		buffer[0x21+i] = modifiedTime[i]
 	}
 	buffer[0x25] = byte(fileEntry.HeaderPointer & 0x00FF)
 	buffer[0x26] = byte(fileEntry.HeaderPointer >> 8)
 
+	//fmt.Printf("Writing file entry at block: %04X offset: %04X\n", fileEntry.DirectoryBlock, fileEntry.DirectoryOffset)
 	_, err := writer.WriteAt(buffer, int64(fileEntry.DirectoryBlock*512+fileEntry.DirectoryOffset))
 	if err != nil {
 
@@ -381,7 +467,8 @@ func parseVolumeHeader(buffer []byte) VolumeHeader {
 func parseDirectoryHeader(buffer []byte, blockNumber int) DirectoryHeader {
 	previousBlock := int(buffer[0x00]) + int(buffer[0x01])*256
 	nextBlock := int(buffer[0x02]) + int(buffer[0x03])*256
-	filenameLength := buffer[0x04] & 15
+	isSubDirectory := (buffer[0x04] & 0xF0) == 0xE0
+	filenameLength := buffer[0x04] & 0x0F
 	name := string(buffer[0x05 : filenameLength+0x05])
 	creationTime := DateTimeFromProDOS(buffer[0x1C:0x20])
 	version := int(buffer[0x20])
@@ -398,6 +485,7 @@ func parseDirectoryHeader(buffer []byte, blockNumber int) DirectoryHeader {
 		PreviousBlock:     previousBlock,
 		NextBlock:         nextBlock,
 		StartingBlock:     blockNumber,
+		IsSubDirectory:    isSubDirectory,
 		Name:              name,
 		CreationTime:      creationTime,
 		Version:           version,
@@ -415,6 +503,7 @@ func parseDirectoryHeader(buffer []byte, blockNumber int) DirectoryHeader {
 }
 
 func writeDirectoryHeader(readerWriter ReaderWriterAt, directoryHeader DirectoryHeader) error {
+	// Reading back the block preserves values including reserved fields
 	buffer, err := ReadBlock(readerWriter, directoryHeader.StartingBlock)
 	if err != nil {
 		return err
@@ -423,6 +512,11 @@ func writeDirectoryHeader(readerWriter ReaderWriterAt, directoryHeader Directory
 	buffer[0x01] = byte(directoryHeader.PreviousBlock >> 8)
 	buffer[0x02] = byte(directoryHeader.NextBlock & 0x00FF)
 	buffer[0x03] = byte(directoryHeader.NextBlock >> 8)
+	if directoryHeader.IsSubDirectory {
+		buffer[0x04] = 0xE0
+	} else {
+		buffer[0x04] = 0xF0
+	}
 	buffer[0x04] = buffer[0x04] | byte(len(directoryHeader.Name))
 	for i := 0; i < len(directoryHeader.Name); i++ {
 		buffer[0x05+i] = directoryHeader.Name[i]
@@ -431,6 +525,16 @@ func writeDirectoryHeader(readerWriter ReaderWriterAt, directoryHeader Directory
 	for i := 0; i < 4; i++ {
 		buffer[0x1C+i] = creationTime[i]
 	}
+	// Without these reserved bytes, reading the directory causes I/O ERROR
+	buffer[0x14] = 0x75
+	buffer[0x15] = byte(directoryHeader.Version)
+	buffer[0x16] = byte(directoryHeader.MinVersion)
+	buffer[0x17] = 0xC3
+	buffer[0x18] = 0x0D
+	buffer[0x19] = 0x27
+	buffer[0x1A] = 0x00
+	buffer[0x1B] = 0x00
+
 	buffer[0x20] = byte(directoryHeader.Version)
 	buffer[0x21] = byte(directoryHeader.MinVersion)
 	buffer[0x22] = byte(directoryHeader.Access)

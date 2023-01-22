@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-func TestCreatBlocklist(t *testing.T) {
+func TestCreateBlocklist(t *testing.T) {
 	var tests = []struct {
 		fileSize   int
 		wantBlocks int
