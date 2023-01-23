@@ -8,7 +8,7 @@ Being a work in progress, be warned that this code is likely to corrupt drive im
 There are binaries [here](https://github.com/tjboldt/ProDOS-Utilities/releases/latest)
 
 ## Current TODO list
-1. Create/Delete directories
+1. Delete directories
 2. Add file/directory tests
 3. Add rename
 4. Add in-place file/directory moves
