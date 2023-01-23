@@ -17,7 +17,7 @@ import (
 	"github.com/tjboldt/ProDOS-Utilities/prodos"
 )
 
-const version = "0.4.3"
+const version = "0.4.4"
 
 func main() {
 	var fileName string
