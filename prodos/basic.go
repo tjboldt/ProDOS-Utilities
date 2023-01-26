@@ -190,6 +190,9 @@ func ConvertTextToBasic(text string) ([]byte, error) {
 
 		// skip initial whitespace and look for the start of a line number
 		if starting {
+			if c == '\n' { // skip blank lines
+				continue
+			}
 			if c == ' ' {
 				continue
 			}
@@ -230,6 +233,7 @@ func ConvertTextToBasic(text string) ([]byte, error) {
 				parsingRem = false
 				parsingString = false
 				foundToken = false
+				skipChars = 0
 				currentByte += basicLine.Len()
 				currentByte += 3
 				// write address of next line
