@@ -82,7 +82,7 @@ func main() {
 
 func dumpFile(fileName string, pathName string) {
 	checkPathName(pathName)
-	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+	file, err := os.OpenFile(fileName, os.O_RDONLY, 0755)
 	if err != nil {
 		fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 		os.Exit(1)
@@ -94,7 +94,7 @@ func dumpFile(fileName string, pathName string) {
 
 func dumpDirectory(fileName string, pathName string) {
 	checkPathName(pathName)
-	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+	file, err := os.OpenFile(fileName, os.O_RDONLY, 0755)
 	if err != nil {
 		fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 		os.Exit(1)
@@ -176,7 +176,7 @@ func writeBlock(blockNumber int, fileName string, inFileName string) {
 
 func readBlock(blockNumber int, fileName string) {
 	fmt.Printf("Reading block 0x%04X (%d):\n\n", blockNumber, blockNumber)
-	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+	file, err := os.OpenFile(fileName, os.O_RDONLY, 0755)
 	if err != nil {
 		fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 		os.Exit(1)
@@ -209,7 +209,7 @@ func put(fileName string, pathName string, fileType int, auxType int, inFileName
 
 func get(fileName string, pathName string, outFileName string) {
 	checkPathName(pathName)
-	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+	file, err := os.OpenFile(fileName, os.O_RDONLY, 0755)
 	if err != nil {
 		fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 		os.Exit(1)
@@ -236,7 +236,7 @@ func get(fileName string, pathName string, outFileName string) {
 }
 
 func ls(fileName string, pathName string) {
-	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
+	file, err := os.OpenFile(fileName, os.O_RDONLY, 0755)
 	if err != nil {
 		fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
 		os.Exit(1)
