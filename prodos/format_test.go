@@ -13,9 +13,9 @@ import (
 
 func TestCreateVolume(t *testing.T) {
 	var tests = []struct {
-		blocks         int
+		blocks         uint16
 		wantVolumeName string
-		wantFreeBlocks int
+		wantFreeBlocks uint16
 	}{
 		{65535, "MAX", 65513},
 		{65500, "ALMOST.MAX", 65478},

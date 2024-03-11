@@ -29,12 +29,12 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 
 	buffer := make([]byte, fileEntry.EndOfFile)
 
-	for i := 0; i < len(blockList); i++ {
+	for i := uint16(0); i < uint16(len(blockList)); i++ {
 		block, err := ReadBlock(reader, blockList[i])
 		if err != nil {
 			return nil, err
 		}
-		for j := 0; j < 512 && i*512+j < fileEntry.EndOfFile; j++ {
+		for j := uint16(0); j < 512 && uint32(i)*512+uint32(j) < fileEntry.EndOfFile; j++ {
 			buffer[i*512+j] = block[j]
 		}
 	}
@@ -43,7 +43,7 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 }
 
 // WriteFile writes a file to a ProDOS volume from a byte array
-func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType int, createdTime time.Time, modifiedTime time.Time, buffer []byte) error {
+func WriteFile(readerWriter ReaderWriterAt, path string, fileType uint8, auxType uint16, createdTime time.Time, modifiedTime time.Time, buffer []byte) error {
 	directory, fileName := GetDirectoryAndFileNameFromPath(path)
 
 	if len(fileName) > 15 {
@@ -56,7 +56,7 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 	}
 
 	// get list of blocks to write file to
-	blockList, err := createBlockList(readerWriter, len(buffer))
+	blockList, err := createBlockList(readerWriter, uint32(len(buffer)))
 	if err != nil {
 		return err
 	}
@@ -88,11 +88,11 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType int, auxType i
 		return err
 	}
 	fileEntry.FileName = fileName
-	fileEntry.BlocksUsed = len(blockList)
+	fileEntry.BlocksUsed = uint16(len(blockList))
 	fileEntry.CreationTime = createdTime
 	fileEntry.ModifiedTime = modifiedTime
 	fileEntry.AuxType = auxType
-	fileEntry.EndOfFile = len(buffer)
+	fileEntry.EndOfFile = uint32(len(buffer))
 	fileEntry.FileType = fileType
 	fileEntry.KeyPointer = blockList[0]
 	fileEntry.Version = 0x24
@@ -197,24 +197,24 @@ func GetDirectoryAndFileNameFromPath(path string) (string, string) {
 	return directory, fileName
 }
 
-func updateVolumeBitmap(readerWriter ReaderWriterAt, blockList []int) error {
+func updateVolumeBitmap(readerWriter ReaderWriterAt, blockList []uint16) error {
 
 	volumeBitmap, err := ReadVolumeBitmap(readerWriter)
 	if err != nil {
 		fmt.Printf("%s", err)
 		return err
 	}
-	for i := 0; i < len(blockList); i++ {
+	for i := uint16(0); i < uint16(len(blockList)); i++ {
 		markBlockInVolumeBitmap(volumeBitmap, blockList[i])
 	}
 	return writeVolumeBitmap(readerWriter, volumeBitmap)
 }
 
-func writeSeedlingFile(writer io.WriterAt, buffer []byte, blockList []int) {
+func writeSeedlingFile(writer io.WriterAt, buffer []byte, blockList []uint16) {
 	WriteBlock(writer, blockList[0], buffer)
 }
 
-func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []int) {
+func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []uint16) {
 	// write index block with pointers to data blocks
 	indexBuffer := make([]byte, 512)
 	for i := 0; i < 256; i++ {
@@ -249,7 +249,7 @@ func writeSaplingFile(writer io.WriterAt, buffer []byte, blockList []int) {
 	}
 }
 
-func writeTreeFile(writer io.WriterAt, buffer []byte, blockList []int) {
+func writeTreeFile(writer io.WriterAt, buffer []byte, blockList []uint16) {
 	// write master index block with pointers to index blocks
 	indexBuffer := make([]byte, 512)
 	numberOfIndexBlocks := len(blockList)/256 + 1
@@ -303,17 +303,17 @@ func writeTreeFile(writer io.WriterAt, buffer []byte, blockList []int) {
 	}
 }
 
-func getDataBlocklist(reader io.ReaderAt, fileEntry FileEntry) ([]int, error) {
+func getDataBlocklist(reader io.ReaderAt, fileEntry FileEntry) ([]uint16, error) {
 	return getBlocklist(reader, fileEntry, true)
 }
 
-func getAllBlockList(reader io.ReaderAt, fileEntry FileEntry) ([]int, error) {
+func getAllBlockList(reader io.ReaderAt, fileEntry FileEntry) ([]uint16, error) {
 	return getBlocklist(reader, fileEntry, false)
 }
 
 // Returns all blocks, including index blocks
-func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int, error) {
-	blocks := make([]int, fileEntry.BlocksUsed)
+func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]uint16, error) {
+	blocks := make([]uint16, fileEntry.BlocksUsed)
 
 	switch fileEntry.StorageType {
 	case StorageSeedling:
@@ -324,10 +324,10 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 		if err != nil {
 			return nil, err
 		}
-		blockOffset := 1
+		blockOffset := uint16(1)
 		blocks[0] = fileEntry.KeyPointer
-		for i := 0; i < fileEntry.BlocksUsed-1; i++ {
-			blocks[i+blockOffset] = int(index[i]) + int(index[i+256])*256
+		for i := uint16(0); i < fileEntry.BlocksUsed-1; i++ {
+			blocks[i+blockOffset] = uint16(index[i]) + uint16(index[i+256])*256
 		}
 		if dataOnly {
 			return blocks[1:], nil
@@ -335,10 +335,10 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 		return blocks, nil
 	case StorageTree:
 		// this is actually too large
-		dataBlocks := make([]int, fileEntry.BlocksUsed)
+		dataBlocks := make([]uint16, fileEntry.BlocksUsed)
 		// this is also actually too large
 		numberOfIndexBlocks := fileEntry.BlocksUsed/256 + 2
-		indexBlocks := make([]int, numberOfIndexBlocks)
+		indexBlocks := make([]uint16, numberOfIndexBlocks)
 		masterIndex, err := ReadBlock(reader, fileEntry.KeyPointer)
 		if err != nil {
 			return nil, err
@@ -348,8 +348,8 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 		indexBlocks[0] = fileEntry.KeyPointer
 		indexBlockCount := 1
 
-		for i := 0; i < 128; i++ {
-			indexBlock := int(masterIndex[i]) + int(masterIndex[i+256])*256
+		for i := uint16(0); i < 128; i++ {
+			indexBlock := uint16(masterIndex[i]) + uint16(masterIndex[i+256])*256
 			if indexBlock == 0 {
 				break
 			}
@@ -359,12 +359,12 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 			if err != nil {
 				return nil, err
 			}
-			for j := 0; j < 256 && i*256+j < fileEntry.BlocksUsed; j++ {
-				if (int(index[j]) + int(index[j+256])*256) == 0 {
+			for j := uint16(0); j < 256 && i*256+j < fileEntry.BlocksUsed; j++ {
+				if (uint16(index[j]) + uint16(index[j+256])*256) == 0 {
 					break
 				}
 				numberOfDataBlocks++
-				dataBlocks[i*256+j] = int(index[j]) + int(index[j+256])*256
+				dataBlocks[i*256+j] = uint16(index[j]) + uint16(index[j+256])*256
 			}
 		}
 
@@ -379,8 +379,8 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]int
 	return nil, errors.New("unsupported file storage type")
 }
 
-func createBlockList(reader io.ReaderAt, fileSize int) ([]int, error) {
-	numberOfBlocks := fileSize / 512
+func createBlockList(reader io.ReaderAt, fileSize uint32) ([]uint16, error) {
+	numberOfBlocks := uint16(fileSize / 512)
 
 	if fileSize%512 > 0 {
 		numberOfBlocks++

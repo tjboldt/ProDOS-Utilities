@@ -33,13 +33,13 @@ func ReadVolumeBitmap(reader io.ReaderAt) ([]byte, error) {
 		totalBitmapBlocks++
 	}
 
-	for i := 0; i < totalBitmapBlocks; i++ {
+	for i := uint16(0); i < totalBitmapBlocks; i++ {
 		bitmapBlock, err := ReadBlock(reader, i+volumeHeader.BitmapStartBlock)
 		if err != nil {
 			return nil, err
 		}
 
-		for j := 0; j < 512 && i*512+j < totalBitmapBytes; j++ {
+		for j := uint16(0); j < 512 && i*512+j < totalBitmapBytes; j++ {
 			bitmap[i*512+j] = bitmapBlock[j]
 		}
 	}
@@ -48,10 +48,10 @@ func ReadVolumeBitmap(reader io.ReaderAt) ([]byte, error) {
 }
 
 // GetFreeBlockCount gets the number of free blocks on a ProDOS image
-func GetFreeBlockCount(volumeBitmap []byte, totalBlocks int) int {
-	freeBlockCount := 0
+func GetFreeBlockCount(volumeBitmap []byte, totalBlocks uint16) uint16 {
+	freeBlockCount := uint16(0)
 
-	for i := 0; i < totalBlocks; i++ {
+	for i := uint16(0); i < totalBlocks; i++ {
 		if checkFreeBlockInVolumeBitmap(volumeBitmap, i) {
 			freeBlockCount++
 		}
@@ -77,13 +77,13 @@ func writeVolumeBitmap(readerWriter ReaderWriterAt, bitmap []byte) error {
 		totalBitmapBlocks++
 	}
 
-	for i := 0; i < totalBitmapBlocks; i++ {
+	for i := uint16(0); i < totalBitmapBlocks; i++ {
 		bitmapBlock, err := ReadBlock(readerWriter, i+volumeHeader.BitmapStartBlock)
 		if err != nil {
 			return err
 		}
 
-		for j := 0; j < 512 && i*512+j < totalBitmapBytes; j++ {
+		for j := uint16(0); j < 512 && i*512+j < totalBitmapBytes; j++ {
 			bitmapBlock[j] = bitmap[i*512+j]
 		}
 
@@ -96,9 +96,10 @@ func writeVolumeBitmap(readerWriter ReaderWriterAt, bitmap []byte) error {
 	return nil
 }
 
-func createVolumeBitmap(numberOfBlocks int) []byte {
-	volumeBitmapBlocks := numberOfBlocks / 512 / 8
-	if volumeBitmapBlocks*8*512 < numberOfBlocks {
+func createVolumeBitmap(numberOfBlocks uint16) []byte {
+	// needs to be > uint16 because it's multiplying by a uint16
+	volumeBitmapBlocks := uint32(numberOfBlocks / 512 / 8)
+	if volumeBitmapBlocks*8*512 < uint32(numberOfBlocks) {
 		volumeBitmapBlocks++
 	}
 
@@ -119,30 +120,31 @@ func createVolumeBitmap(numberOfBlocks int) []byte {
 	markBlockInVolumeBitmap(volumeBitmap, 5)
 
 	// volume bitmap blocks
-	for i := 0; i < volumeBitmapBlocks; i++ {
-		markBlockInVolumeBitmap(volumeBitmap, 6+i)
+	for i := uint32(0); i < volumeBitmapBlocks; i++ {
+		markBlockInVolumeBitmap(volumeBitmap, uint16(6+i))
 	}
 
 	// blocks beyond the volume
 	totalBlocksInBitmap := volumeBitmapBlocks * 512 * 8
-	blocksBeyondEnd := totalBlocksInBitmap - numberOfBlocks
+	blocksBeyondEnd := totalBlocksInBitmap - uint32(numberOfBlocks)
 	if blocksBeyondEnd > 0 {
 		for i := totalBlocksInBitmap - blocksBeyondEnd; i < totalBlocksInBitmap; i++ {
-			markBlockInVolumeBitmap(volumeBitmap, i)
+			markBlockInVolumeBitmap(volumeBitmap, uint16(i))
 		}
 	}
 
 	return volumeBitmap
 }
 
-func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
-	blocks := make([]int, numberOfBlocks)
+func findFreeBlocks(volumeBitmap []byte, numberOfBlocks uint16) []uint16 {
+	blocks := make([]uint16, numberOfBlocks)
 
-	blocksFound := 0
+	blocksFound := uint16(0)
 
-	for i := 0; i < len(volumeBitmap)*8; i++ {
-		if checkFreeBlockInVolumeBitmap(volumeBitmap, i) {
-			blocks[blocksFound] = i
+	// needs to be > uint16 because it's multiplying by a uint16
+	for i := uint32(0); i < uint32(len(volumeBitmap))*8; i++ {
+		if checkFreeBlockInVolumeBitmap(volumeBitmap, uint16(i)) {
+			blocks[blocksFound] = uint16(i)
 			blocksFound++
 			if blocksFound == numberOfBlocks {
 				return blocks
@@ -153,87 +155,29 @@ func findFreeBlocks(volumeBitmap []byte, numberOfBlocks int) []int {
 	return nil
 }
 
-func markBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
+func markBlockInVolumeBitmap(volumeBitmap []byte, blockNumber uint16) {
 	bitToChange := blockNumber % 8
 	byteToChange := blockNumber / 8
 
-	byteToAnd := 0b11111111
+	byteToAnd := (uint8(0b10000000) >> uint8(bitToChange)) ^ 0b11111111
 
-	switch bitToChange {
-	case 0:
-		byteToAnd = 0b01111111
-	case 1:
-		byteToAnd = 0b10111111
-	case 2:
-		byteToAnd = 0b11011111
-	case 3:
-		byteToAnd = 0b11101111
-	case 4:
-		byteToAnd = 0b11110111
-	case 5:
-		byteToAnd = 0b11111011
-	case 6:
-		byteToAnd = 0b11111101
-	case 7:
-		byteToAnd = 0b11111110
-	}
-
-	//fmt.Printf("blockNumber: $%04X byteToWrite: 0b%08b volumeBitmap: $%02X byteToChange: $%04X\n", blockNumber, byteToWrite, volumeBitmap[byteToChange], byteToChange)
 	volumeBitmap[byteToChange] &= byte(byteToAnd)
 }
 
-func freeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) {
+func freeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber uint16) {
 	bitToChange := blockNumber % 8
 	byteToChange := blockNumber / 8
 
-	byteToOr := 0b00000000
-
-	switch bitToChange {
-	case 0:
-		byteToOr = 0b10000000
-	case 1:
-		byteToOr = 0b01000000
-	case 2:
-		byteToOr = 0b00100000
-	case 3:
-		byteToOr = 0b00010000
-	case 4:
-		byteToOr = 0b00001000
-	case 5:
-		byteToOr = 0b00000100
-	case 6:
-		byteToOr = 0b00000010
-	case 7:
-		byteToOr = 0b00000001
-	}
+	byteToOr := uint8(0b10000000) >> uint8(bitToChange)
 
 	volumeBitmap[byteToChange] |= byte(byteToOr)
 }
 
-func checkFreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber int) bool {
+func checkFreeBlockInVolumeBitmap(volumeBitmap []byte, blockNumber uint16) bool {
 	bitToCheck := blockNumber % 8
 	byteToCheck := blockNumber / 8
 
-	byteToAnd := 0b00000000
-
-	switch bitToCheck {
-	case 0:
-		byteToAnd = 0b10000000
-	case 1:
-		byteToAnd = 0b01000000
-	case 2:
-		byteToAnd = 0b00100000
-	case 3:
-		byteToAnd = 0b00010000
-	case 4:
-		byteToAnd = 0b00001000
-	case 5:
-		byteToAnd = 0b00000100
-	case 6:
-		byteToAnd = 0b00000010
-	case 7:
-		byteToAnd = 0b00000001
-	}
+	byteToAnd := uint8(0b10000000) >> uint8(bitToCheck)
 
 	return (volumeBitmap[byteToCheck] & byte(byteToAnd)) > 0
 }

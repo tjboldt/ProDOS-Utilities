@@ -11,8 +11,8 @@ import (
 
 func TestCreateBlocklist(t *testing.T) {
 	var tests = []struct {
-		fileSize   int
-		wantBlocks int
+		fileSize   uint32
+		wantBlocks uint16
 	}{
 		{1, 1},
 		{512, 1},
@@ -33,7 +33,7 @@ func TestCreateBlocklist(t *testing.T) {
 			if err != nil {
 				t.Error("got error, want nil")
 			}
-			if len(blockList) != tt.wantBlocks {
+			if uint16(len(blockList)) != tt.wantBlocks {
 				t.Errorf("got %d blocks, want %d", len(blockList), tt.wantBlocks)
 			}
 		})
@@ -41,7 +41,7 @@ func TestCreateBlocklist(t *testing.T) {
 }
 
 func TestUpdateVolumeBitmap(t *testing.T) {
-	blockList := []int{10, 11, 12, 100, 120}
+	blockList := []uint16{10, 11, 12, 100, 120}
 
 	virtualDisk := NewMemoryFile(0x2000000)
 	CreateVolume(virtualDisk, "VIRTUAL.DISK", 0xFFFE)

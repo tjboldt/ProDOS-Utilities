@@ -14,10 +14,10 @@ import (
 
 func TestCreateVolumeBitmap(t *testing.T) {
 	var tests = []struct {
-		blocks int
-		want   int
+		blocks uint16
+		want   uint16
 	}{
-		{65536, 8192},
+		{65535, 8192},
 		{65533, 8192},
 		{140, 512},
 	}
@@ -26,7 +26,7 @@ func TestCreateVolumeBitmap(t *testing.T) {
 		testname := fmt.Sprintf("%d", tt.blocks)
 		t.Run(testname, func(t *testing.T) {
 			volumeBitMap := createVolumeBitmap(tt.blocks)
-			ans := len(volumeBitMap)
+			ans := uint16(len(volumeBitMap))
 			if ans != tt.want {
 				t.Errorf("got %d, want %d", ans, tt.want)
 			}
@@ -36,7 +36,7 @@ func TestCreateVolumeBitmap(t *testing.T) {
 
 func TestCheckFreeBlockInVolumeBitmap(t *testing.T) {
 	var tests = []struct {
-		blocks int
+		blocks uint16
 		want   bool
 	}{
 		{0, false},     // boot block
@@ -63,7 +63,7 @@ func TestCheckFreeBlockInVolumeBitmap(t *testing.T) {
 
 func TestMarkBlockInVolumeBitmap(t *testing.T) {
 	var tests = []struct {
-		blocks int
+		blocks uint16
 		want   bool
 	}{
 		{0, false},     // boot block

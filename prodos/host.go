@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -75,8 +77,8 @@ func AddFilesFromHostDirectory(
 func WriteFileFromFile(
 	readerWriter ReaderWriterAt,
 	pathName string,
-	fileType int,
-	auxType int,
+	fileType uint8,
+	auxType uint16,
 	modifiedTime time.Time,
 	inFileName string,
 	ignoreDuplicates bool,
@@ -117,6 +119,11 @@ func WriteFileFromFile(
 			case ".SYS", ".TXT", ".BAS", ".BIN":
 				pathName = strings.TrimSuffix(pathName, ext)
 			}
+			match, err := regexp.MatchString("^\\.(BIN|SYS|TXT|BAS)\\$[0-9]{4}", ext)
+
+			if err == nil && match {
+				pathName = strings.TrimSuffix(pathName, ext)
+			}
 		}
 	}
 
@@ -140,9 +147,12 @@ func WriteFileFromFile(
 	return WriteFile(readerWriter, pathName, fileType, auxType, time.Now(), modifiedTime, inFile)
 }
 
-func convertFileByType(inFileName string, inFile []byte) (int, int, []byte, error) {
-	fileType := 0x06  // default to BIN
-	auxType := 0x2000 // default to $2000
+func convertFileByType(inFileName string, inFile []byte) (uint16, uint8, []byte, error) {
+	var auxType uint16
+	var fileType uint8
+
+	fileType = 0x06  // default to BIN
+	auxType = 0x2000 // default to $2000
 
 	var err error
 
@@ -166,36 +176,57 @@ func convertFileByType(inFileName string, inFile []byte) (int, int, []byte, erro
 		// Length
 		binary.BigEndian.Uint32(inFile[0x2E:]) == 0x00000008 {
 
-		fileType = int(binary.BigEndian.Uint16(inFile[0x34:]))
-		auxType = int(binary.BigEndian.Uint32(inFile[0x36:]))
+		fileType = uint8(binary.BigEndian.Uint16(inFile[0x34:]))
+		auxType = uint16(binary.BigEndian.Uint32(inFile[0x36:]))
 		inFile = inFile[0x3A:]
 	} else {
 		// use extension to determine file type
 		ext := strings.ToUpper(filepath.Ext(inFileName))
 
-		switch ext {
-		case ".BAS":
-			inFile, err = ConvertTextToBasic(string(inFile))
-			fileType = 0xFC
-			auxType = 0x0801
+		match, err := regexp.MatchString("^\\.(BIN|SYS|TXT|BAS)\\$[0-9]{4}", ext)
 
+		if err == nil && match {
+			parts := strings.Split(ext, "$")
+			extAuxType, err := strconv.ParseUint(parts[1], 16, 16)
 			if err != nil {
 				return 0, 0, nil, err
 			}
-		case ".SYS":
-			fileType = 0xFF
-			auxType = 0x2000
-		case ".BIN":
-			fileType = 0x06
-			auxType = 0x2000
-		case ".TXT":
-			inFile = []byte(strings.ReplaceAll(strings.ReplaceAll(string(inFile), "\r\n", "r"), "\n", "\r"))
-			fileType = 0x04
-			auxType = 0x0000
-		case ".JPG", ".PNG":
-			inFile = ConvertImageToHiResMonochrome(inFile)
-			fileType = 0x06
-			auxType = 0x2000
+			auxType = uint16(extAuxType)
+			switch parts[0] {
+			case ".BAS":
+				fileType = 0xFC
+			case ".SYS":
+				fileType = 0xFF
+			case ".BIN":
+				fileType = 0x06
+			case ".TXT":
+				fileType = 0x04
+			}
+		} else {
+			switch ext {
+			case ".BAS":
+				inFile, err = ConvertTextToBasic(string(inFile))
+				fileType = 0xFC
+				auxType = 0x0801
+
+				if err != nil {
+					return 0, 0, nil, err
+				}
+			case ".SYS":
+				fileType = 0xFF
+				auxType = 0x2000
+			case ".BIN":
+				fileType = 0x06
+				auxType = 0x2000
+			case ".TXT":
+				inFile = []byte(strings.ReplaceAll(strings.ReplaceAll(string(inFile), "\r\n", "r"), "\n", "\r"))
+				fileType = 0x04
+				auxType = 0x0000
+			case ".JPG", ".PNG":
+				inFile = ConvertImageToHiResMonochrome(inFile)
+				fileType = 0x06
+				auxType = 0x2000
+			}
 		}
 	}
 
