@@ -19,33 +19,33 @@ import (
 type VolumeHeader struct {
 	VolumeName       string
 	CreationTime     time.Time
-	ActiveFileCount  int
-	BitmapStartBlock int
-	TotalBlocks      int
-	NextBlock        int
-	EntryLength      int
-	EntriesPerBlock  int
-	MinVersion       int
-	Version          int
+	ActiveFileCount  uint16
+	BitmapStartBlock uint16
+	TotalBlocks      uint16
+	NextBlock        uint16
+	EntryLength      uint8
+	EntriesPerBlock  uint8
+	MinVersion       uint8
+	Version          uint8
 }
 
 // DirectoryHeader from ProDOS
 type DirectoryHeader struct {
-	PreviousBlock     int
-	NextBlock         int
+	PreviousBlock     uint16
+	NextBlock         uint16
 	IsSubDirectory    bool
 	Name              string
 	CreationTime      time.Time
-	Version           int
-	MinVersion        int
-	Access            int
-	EntryLength       int
-	EntriesPerBlock   int
-	ActiveFileCount   int
-	StartingBlock     int
-	ParentBlock       int
-	ParentEntry       int
-	ParentEntryLength int
+	Version           uint8
+	MinVersion        uint8
+	Access            uint8
+	EntryLength       uint8
+	EntriesPerBlock   uint8
+	ActiveFileCount   uint16
+	StartingBlock     uint16
+	ParentBlock       uint16
+	ParentEntry       uint16
+	ParentEntryLength uint8
 }
 
 const (
@@ -65,22 +65,22 @@ const (
 
 // FileEntry from ProDOS
 type FileEntry struct {
-	StorageType   int
+	StorageType   uint8
 	FileName      string
-	FileType      int
+	FileType      uint8
 	CreationTime  time.Time
-	KeyPointer    int
-	Version       int
-	MinVersion    int
-	BlocksUsed    int
-	EndOfFile     int
-	Access        int
-	AuxType       int
+	KeyPointer    uint16
+	Version       uint8
+	MinVersion    uint8
+	BlocksUsed    uint16
+	EndOfFile     uint32
+	Access        uint8
+	AuxType       uint16
 	ModifiedTime  time.Time
-	HeaderPointer int
+	HeaderPointer uint16
 
-	DirectoryBlock  int
-	DirectoryOffset int
+	DirectoryBlock  uint16
+	DirectoryOffset uint16
 }
 
 // ReadDirectory reads the directory information from a specified path
@@ -183,7 +183,7 @@ func CreateDirectory(readerWriter ReaderWriterAt, path string) error {
 		ActiveFileCount:   0,
 		StartingBlock:     blockList[0],
 		ParentBlock:       fileEntry.DirectoryBlock,
-		ParentEntry:       (fileEntry.DirectoryOffset - 0x04) / 0x27,
+		ParentEntry:       uint16(fileEntry.DirectoryOffset-0x04) / 0x27,
 		ParentEntryLength: 0x27,
 	}
 
@@ -219,18 +219,18 @@ func getFreeFileEntryInDirectory(readerWriter ReaderWriterAt, directory string) 
 	if err != nil {
 		return FileEntry{}, err
 	}
-	entryOffset := 43 // start at offset after header
-	entryNumber := 2  // header is essentially the first entry so start at 2
+	entryOffset := uint16(43) // start at offset after header
+	entryNumber := 2          // header is essentially the first entry so start at 2
 
 	for {
 		if entryNumber > 13 {
-			nextBlockNumber := int(buffer[2]) + int(buffer[3])*256
+			nextBlockNumber := uint16(buffer[2]) + uint16(buffer[3])*256
 			// if we ran out of blocks in the directory, expand directory or fail
 			if nextBlockNumber == 0 {
 				if !directoryHeader.IsSubDirectory {
 					return FileEntry{}, errors.New("no free file entries found")
 				}
-				nextBlockNumber, err = expandDirectory(readerWriter, nextBlockNumber, buffer, blockNumber, directoryHeader)
+				nextBlockNumber, err = expandDirectory(readerWriter, buffer, blockNumber, directoryHeader)
 				if err != nil {
 					return FileEntry{}, err
 				}
@@ -260,7 +260,7 @@ func getFreeFileEntryInDirectory(readerWriter ReaderWriterAt, directory string) 
 	}
 }
 
-func expandDirectory(readerWriter ReaderWriterAt, nextBlockNumber int, buffer []byte, blockNumber int, directoryHeader DirectoryHeader) (int, error) {
+func expandDirectory(readerWriter ReaderWriterAt, buffer []byte, blockNumber uint16, directoryHeader DirectoryHeader) (uint16, error) {
 	volumeBitMap, err := ReadVolumeBitmap(readerWriter)
 	if err != nil {
 		errString := fmt.Sprintf("failed to get volume bitmap to expand directory: %s", err)
@@ -271,7 +271,7 @@ func expandDirectory(readerWriter ReaderWriterAt, nextBlockNumber int, buffer []
 		return 0, errors.New("failed to get free block to expand directory")
 	}
 
-	nextBlockNumber = blockList[0]
+	nextBlockNumber := blockList[0]
 	buffer[0x02] = byte(nextBlockNumber & 0x00FF)
 	buffer[0x03] = byte(nextBlockNumber >> 8)
 	WriteBlock(readerWriter, blockNumber, buffer)
@@ -296,8 +296,8 @@ func expandDirectory(readerWriter ReaderWriterAt, nextBlockNumber int, buffer []
 		errString := fmt.Sprintf("failed to read parent block to expand directory: %s", err)
 		return 0, errors.New(errString)
 	}
-	directoryEntryOffset := directoryHeader.ParentEntry*directoryHeader.EntryLength + 0x04
-	directoryFileEntry := parseFileEntry(buffer[directoryEntryOffset:directoryEntryOffset+0x28], directoryHeader.ParentBlock, directoryHeader.ParentEntry*directoryHeader.EntryLength+0x04)
+	directoryEntryOffset := directoryHeader.ParentEntry*uint16(directoryHeader.EntryLength) + 0x04
+	directoryFileEntry := parseFileEntry(buffer[directoryEntryOffset:directoryEntryOffset+0x28], directoryHeader.ParentBlock, directoryHeader.ParentEntry*uint16(directoryHeader.EntryLength)+0x04)
 	directoryFileEntry.BlocksUsed++
 	directoryFileEntry.EndOfFile += 0x200
 	writeFileEntry(readerWriter, directoryFileEntry)
@@ -305,7 +305,7 @@ func expandDirectory(readerWriter ReaderWriterAt, nextBlockNumber int, buffer []
 	return nextBlockNumber, nil
 }
 
-func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath int, paths []string) (DirectoryHeader, []FileEntry, error) {
+func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber uint16, currentPath int, paths []string) (DirectoryHeader, []FileEntry, error) {
 	buffer, err := ReadBlock(reader, blockNumber)
 	if err != nil {
 		return DirectoryHeader{}, nil, err
@@ -314,9 +314,9 @@ func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath 
 	directoryHeader := parseDirectoryHeader(buffer, blockNumber)
 
 	fileEntries := make([]FileEntry, directoryHeader.ActiveFileCount)
-	entryOffset := 43 // start at offset after header
-	activeEntries := 0
-	entryNumber := 2 // header is essentially the first entry so start at 2
+	entryOffset := uint16(43) // start at offset after header
+	activeEntries := uint16(0)
+	entryNumber := uint8(2) // header is essentially the first entry so start at 2
 
 	nextBlock := directoryHeader.NextBlock
 
@@ -338,7 +338,7 @@ func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath 
 			if err != nil {
 				return DirectoryHeader{}, nil, err
 			}
-			nextBlock = int(buffer[2]) + int(buffer[3])*256
+			nextBlock = uint16(buffer[2]) + uint16(buffer[3])*256
 		}
 		fileEntry := parseFileEntry(buffer[entryOffset:entryOffset+40], blockNumber, entryOffset)
 
@@ -359,21 +359,21 @@ func getFileEntriesInDirectory(reader io.ReaderAt, blockNumber int, currentPath 
 	}
 }
 
-func parseFileEntry(buffer []byte, blockNumber int, entryOffset int) FileEntry {
-	storageType := int(buffer[0] >> 4)
-	fileNameLength := int(buffer[0] & 15)
+func parseFileEntry(buffer []byte, blockNumber uint16, entryOffset uint16) FileEntry {
+	storageType := buffer[0] >> 4
+	fileNameLength := buffer[0] & 15
 	fileName := string(buffer[1 : fileNameLength+1])
-	fileType := int(buffer[16])
-	startingBlock := int(buffer[17]) + int(buffer[18])*256
-	blocksUsed := int(buffer[19]) + int(buffer[20])*256
-	endOfFile := int(buffer[21]) + int(buffer[22])*256 + int(buffer[23])*65536
+	fileType := buffer[16]
+	startingBlock := uint16(buffer[17]) + uint16(buffer[18])*256
+	blocksUsed := uint16(buffer[19]) + uint16(buffer[20])*256
+	endOfFile := uint32(buffer[21]) + uint32(buffer[22])*256 + uint32(buffer[23])*65536
 	creationTime := DateTimeFromProDOS(buffer[24:28])
-	version := int(buffer[28])
-	minVersion := int(buffer[29])
-	access := int(buffer[30])
-	auxType := int(buffer[31]) + int(buffer[32])*256
+	version := buffer[28]
+	minVersion := buffer[29]
+	access := buffer[30]
+	auxType := uint16(buffer[31]) + uint16(buffer[32])*256
 	modifiedTime := DateTimeFromProDOS((buffer[33:37]))
-	headerPointer := int(buffer[0x25]) + int(buffer[0x26])*256
+	headerPointer := uint16(buffer[0x25]) + uint16(buffer[0x26])*256
 
 	fileEntry := FileEntry{
 		StorageType:     storageType,
@@ -427,24 +427,24 @@ func writeFileEntry(writer io.WriterAt, fileEntry FileEntry) {
 	buffer[0x26] = byte(fileEntry.HeaderPointer >> 8)
 
 	//fmt.Printf("Writing file entry at block: %04X offset: %04X\n", fileEntry.DirectoryBlock, fileEntry.DirectoryOffset)
-	_, err := writer.WriteAt(buffer, int64(fileEntry.DirectoryBlock*512+fileEntry.DirectoryOffset))
+	_, err := writer.WriteAt(buffer, int64(fileEntry.DirectoryBlock)*512+int64(fileEntry.DirectoryOffset))
 	if err != nil {
 
 	}
 }
 
 func parseVolumeHeader(buffer []byte) VolumeHeader {
-	nextBlock := int(buffer[2]) + int(buffer[3])*256
+	nextBlock := uint16(buffer[2]) + uint16(buffer[3])*256
 	filenameLength := buffer[4] & 15
 	volumeName := string(buffer[5 : filenameLength+5])
 	creationTime := DateTimeFromProDOS(buffer[28:32])
-	version := int(buffer[32])
-	minVersion := int(buffer[33])
-	entryLength := int(buffer[35])
-	entriesPerBlock := int(buffer[36])
-	fileCount := int(buffer[37]) + int(buffer[38])*256
-	bitmapBlock := int(buffer[39]) + int(buffer[40])*256
-	totalBlocks := int(buffer[41]) + int(buffer[42])*256
+	version := buffer[32]
+	minVersion := buffer[33]
+	entryLength := buffer[35]
+	entriesPerBlock := buffer[36]
+	fileCount := uint16(buffer[37]) + uint16(buffer[38])*256
+	bitmapBlock := uint16(buffer[39]) + uint16(buffer[40])*256
+	totalBlocks := uint16(buffer[41]) + uint16(buffer[42])*256
 
 	if minVersion > 0 {
 		panic("Unsupported ProDOS version")
@@ -465,22 +465,22 @@ func parseVolumeHeader(buffer []byte) VolumeHeader {
 	return volumeHeader
 }
 
-func parseDirectoryHeader(buffer []byte, blockNumber int) DirectoryHeader {
-	previousBlock := int(buffer[0x00]) + int(buffer[0x01])*256
-	nextBlock := int(buffer[0x02]) + int(buffer[0x03])*256
+func parseDirectoryHeader(buffer []byte, blockNumber uint16) DirectoryHeader {
+	previousBlock := uint16(buffer[0x00]) + uint16(buffer[0x01])*256
+	nextBlock := uint16(buffer[0x02]) + uint16(buffer[0x03])*256
 	isSubDirectory := (buffer[0x04] & 0xF0) == 0xE0
 	filenameLength := buffer[0x04] & 0x0F
 	name := string(buffer[0x05 : filenameLength+0x05])
 	creationTime := DateTimeFromProDOS(buffer[0x1C:0x20])
-	version := int(buffer[0x20])
-	minVersion := int(buffer[0x21])
-	access := int(buffer[0x22])
-	entryLength := int(buffer[0x23])
-	entriesPerBlock := int(buffer[0x24])
-	fileCount := int(buffer[0x25]) + int(buffer[0x26])*256
-	parentBlock := int(buffer[0x27]) + int(buffer[0x28])*256
-	parentEntry := int(buffer[0x29])
-	parentEntryLength := int(buffer[0x2A])
+	version := buffer[0x20]
+	minVersion := buffer[0x21]
+	access := buffer[0x22]
+	entryLength := buffer[0x23]
+	entriesPerBlock := buffer[0x24]
+	fileCount := uint16(buffer[0x25]) + uint16(buffer[0x26])*256
+	parentBlock := uint16(buffer[0x27]) + uint16(buffer[0x28])*256
+	parentEntry := uint16(buffer[0x29])
+	parentEntryLength := buffer[0x2A]
 
 	directoryEntry := DirectoryHeader{
 		PreviousBlock:     previousBlock,
