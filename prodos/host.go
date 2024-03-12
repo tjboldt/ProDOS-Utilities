@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2022-2023
+// Copyright Terence J. Boldt (c)2022-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -28,6 +28,9 @@ func AddFilesFromHostDirectory(
 ) error {
 
 	path, err := makeFullPath(path, readerWriter)
+	if err != nil {
+		return err
+	}
 
 	if !strings.HasSuffix(path, "/") {
 		path = path + "/"

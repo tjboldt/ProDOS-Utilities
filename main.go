@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -17,7 +17,7 @@ import (
 	"github.com/tjboldt/ProDOS-Utilities/prodos"
 )
 
-const version = "0.4.9"
+const version = "0.5.0"
 
 func main() {
 	var fileName string
