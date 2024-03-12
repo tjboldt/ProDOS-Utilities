@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -106,8 +106,10 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType uint8, auxType
 		fileEntry.StorageType = StorageTree
 	}
 
-	writeFileEntry(readerWriter, fileEntry)
-
+	err = writeFileEntry(readerWriter, fileEntry)
+	if err != nil {
+		return err
+	}
 	return incrementFileCount(readerWriter, fileEntry)
 }
 
@@ -168,7 +170,10 @@ func DeleteFile(readerWriter ReaderWriterAt, path string) error {
 	// zero out directory entry
 	fileEntry.StorageType = 0
 	fileEntry.FileName = ""
-	writeFileEntry(readerWriter, fileEntry)
+	err = writeFileEntry(readerWriter, fileEntry)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -422,7 +427,7 @@ func GetFileEntry(reader io.ReaderAt, path string) (FileEntry, error) {
 		return FileEntry{}, err
 	}
 
-	if fileEntries == nil || len(fileEntries) == 0 {
+	if len(fileEntries) == 0 {
 		return FileEntry{}, errors.New("file entry not found")
 	}
 

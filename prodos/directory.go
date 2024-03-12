@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -161,7 +161,10 @@ func CreateDirectory(readerWriter ReaderWriterAt, path string) error {
 	fileEntry.Version = 0x24
 	fileEntry.MinVersion = 0x00
 
-	writeFileEntry(readerWriter, fileEntry)
+	err = writeFileEntry(readerWriter, fileEntry)
+	if err != nil {
+		return err
+	}
 
 	err = incrementFileCount(readerWriter, fileEntry)
 	if err != nil {
@@ -300,7 +303,10 @@ func expandDirectory(readerWriter ReaderWriterAt, buffer []byte, blockNumber uin
 	directoryFileEntry := parseFileEntry(buffer[directoryEntryOffset:directoryEntryOffset+0x28], directoryHeader.ParentBlock, directoryHeader.ParentEntry*uint16(directoryHeader.EntryLength)+0x04)
 	directoryFileEntry.BlocksUsed++
 	directoryFileEntry.EndOfFile += 0x200
-	writeFileEntry(readerWriter, directoryFileEntry)
+	err = writeFileEntry(readerWriter, directoryFileEntry)
+	if err != nil {
+		return 0, err
+	}
 
 	return nextBlockNumber, nil
 }
@@ -396,7 +402,7 @@ func parseFileEntry(buffer []byte, blockNumber uint16, entryOffset uint16) FileE
 	return fileEntry
 }
 
-func writeFileEntry(writer io.WriterAt, fileEntry FileEntry) {
+func writeFileEntry(writer io.WriterAt, fileEntry FileEntry) error {
 	buffer := make([]byte, 39)
 	buffer[0] = byte(fileEntry.StorageType)<<4 + byte(len(fileEntry.FileName))
 	for i := 0; i < len(fileEntry.FileName); i++ {
@@ -429,8 +435,10 @@ func writeFileEntry(writer io.WriterAt, fileEntry FileEntry) {
 	//fmt.Printf("Writing file entry at block: %04X offset: %04X\n", fileEntry.DirectoryBlock, fileEntry.DirectoryOffset)
 	_, err := writer.WriteAt(buffer, int64(fileEntry.DirectoryBlock)*512+int64(fileEntry.DirectoryOffset))
 	if err != nil {
-
+		return err
 	}
+
+	return nil
 }
 
 func parseVolumeHeader(buffer []byte) VolumeHeader {
