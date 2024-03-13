@@ -89,6 +89,10 @@ func dumpFile(fileName string, pathName string) {
 	}
 	defer file.Close()
 	fileEntry, err := prodos.GetFileEntry(file, pathName)
+	if err != nil {
+		fmt.Printf("Failed to path %s:\n  %s", pathName, err)
+		os.Exit(1)
+	}
 	prodos.DumpFileEntry(fileEntry)
 }
 
@@ -101,6 +105,10 @@ func dumpDirectory(fileName string, pathName string) {
 	}
 	defer file.Close()
 	_, directoryheader, _, err := prodos.ReadDirectory(file, pathName)
+	if err != nil {
+		fmt.Printf("Failed to read directory %s:\n  %s", pathName, err)
+		os.Exit(1)
+	}
 	prodos.DumpDirectoryHeader(directoryheader)
 }
 
@@ -200,6 +208,9 @@ func put(fileName string, pathName string, fileType uint8, auxType uint16, inFil
 	}
 	defer file.Close()
 	fileInfo, err := os.Stat(fileName)
+	if err != nil {
+		fmt.Printf("Failed get fileInfo for %s - %s", fileName, err)
+	}
 
 	err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName, false)
 	if err != nil {
@@ -229,7 +240,7 @@ func get(fileName string, pathName string, outFileName string) {
 		os.Exit(1)
 	}
 	if strings.HasSuffix(strings.ToLower(outFileName), ".bas") {
-		fmt.Fprintf(outFile, prodos.ConvertBasicToText(getFile))
+		fmt.Fprint(outFile, prodos.ConvertBasicToText(getFile))
 	} else {
 		outFile.Write(getFile)
 	}

@@ -277,7 +277,7 @@ func expandDirectory(readerWriter ReaderWriterAt, buffer []byte, blockNumber uin
 	nextBlockNumber := blockList[0]
 	buffer[0x02] = byte(nextBlockNumber & 0x00FF)
 	buffer[0x03] = byte(nextBlockNumber >> 8)
-	WriteBlock(readerWriter, blockNumber, buffer)
+	err = WriteBlock(readerWriter, blockNumber, buffer)
 	if err != nil {
 		errString := fmt.Sprintf("failed to write block to expand directory: %s", err)
 		return 0, errors.New(errString)

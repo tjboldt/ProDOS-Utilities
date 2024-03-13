@@ -74,7 +74,7 @@ func TestConvertTextToBasic(t *testing.T) {
 		testname := tt.name
 		t.Run(testname, func(t *testing.T) {
 			basic, _ := ConvertTextToBasic(tt.basicText)
-			if bytes.Compare(basic, tt.want) != 0 {
+			if !bytes.Equal(basic, tt.want) {
 				t.Errorf("%s\ngot '%#v'\nwant '%#v'\n", testname, basic, tt.want)
 			}
 		})
