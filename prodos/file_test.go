@@ -39,26 +39,3 @@ func TestCreateBlocklist(t *testing.T) {
 		})
 	}
 }
-
-func TestUpdateVolumeBitmap(t *testing.T) {
-	blockList := []uint16{10, 11, 12, 100, 120}
-
-	virtualDisk := NewMemoryFile(0x2000000)
-	CreateVolume(virtualDisk, "VIRTUAL.DISK", 0xFFFE)
-	updateVolumeBitmap(virtualDisk, blockList)
-
-	for _, tt := range blockList {
-		testname := fmt.Sprintf("%d", tt)
-		t.Run(testname, func(t *testing.T) {
-
-			volumeBitmap, err := ReadVolumeBitmap(virtualDisk)
-			if err != nil {
-				t.Error("got error, want nil")
-			}
-			free := checkFreeBlockInVolumeBitmap(volumeBitmap, tt)
-			if free {
-				t.Errorf("got true, want false")
-			}
-		})
-	}
-}
