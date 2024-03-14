@@ -3,7 +3,7 @@
 // license that can be found in the LICENSE file.
 
 // This file provides access to read, write, delete
-// fand parse directories on a ProDOS drive image
+// and parse directories on a ProDOS drive image
 
 package prodos
 
@@ -117,7 +117,7 @@ func ReadDirectory(reader io.ReaderAt, path string) (VolumeHeader, DirectoryHead
 // on a ProDOS image
 func CreateDirectory(readerWriter ReaderWriterAt, path string) error {
 	if len(path) == 0 {
-		return errors.New("cannot create directory with path")
+		return errors.New("cannot create directory without path")
 	}
 
 	// add volume name if not full path

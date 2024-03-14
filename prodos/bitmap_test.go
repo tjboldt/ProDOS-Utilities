@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
-// This file provides tests for access to volum bitmap on
+// This file provides tests for access to volume bitmap on
 // a ProDOS drive image
 
 package prodos
@@ -85,6 +85,29 @@ func TestMarkBlockInVolumeBitmap(t *testing.T) {
 			ans := checkFreeBlockInVolumeBitmap(volumeBitMap, tt.blocks)
 			if ans != tt.want {
 				t.Errorf("got %t, want %t", ans, tt.want)
+			}
+		})
+	}
+}
+
+func TestUpdateVolumeBitmap(t *testing.T) {
+	blockList := []uint16{10, 11, 12, 100, 120}
+
+	virtualDisk := NewMemoryFile(0x2000000)
+	CreateVolume(virtualDisk, "VIRTUAL.DISK", 0xFFFE)
+	updateVolumeBitmap(virtualDisk, blockList)
+
+	for _, tt := range blockList {
+		testname := fmt.Sprintf("%d", tt)
+		t.Run(testname, func(t *testing.T) {
+
+			volumeBitmap, err := ReadVolumeBitmap(virtualDisk)
+			if err != nil {
+				t.Error("got error, want nil")
+			}
+			free := checkFreeBlockInVolumeBitmap(volumeBitmap, tt)
+			if free {
+				t.Errorf("got true, want false")
 			}
 		})
 	}
