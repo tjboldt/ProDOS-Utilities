@@ -1,8 +1,8 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
-// This file provides tests for access to volum bitmap on
+// This file provides tests for access to volume bitmap on
 // a ProDOS drive image
 
 package prodos
@@ -14,10 +14,10 @@ import (
 
 func TestCreateVolumeBitmap(t *testing.T) {
 	var tests = []struct {
-		blocks int
-		want   int
+		blocks uint16
+		want   uint16
 	}{
-		{65536, 8192},
+		{65535, 8192},
 		{65533, 8192},
 		{140, 512},
 	}
@@ -26,7 +26,7 @@ func TestCreateVolumeBitmap(t *testing.T) {
 		testname := fmt.Sprintf("%d", tt.blocks)
 		t.Run(testname, func(t *testing.T) {
 			volumeBitMap := createVolumeBitmap(tt.blocks)
-			ans := len(volumeBitMap)
+			ans := uint16(len(volumeBitMap))
 			if ans != tt.want {
 				t.Errorf("got %d, want %d", ans, tt.want)
 			}
@@ -36,7 +36,7 @@ func TestCreateVolumeBitmap(t *testing.T) {
 
 func TestCheckFreeBlockInVolumeBitmap(t *testing.T) {
 	var tests = []struct {
-		blocks int
+		blocks uint16
 		want   bool
 	}{
 		{0, false},     // boot block
@@ -63,7 +63,7 @@ func TestCheckFreeBlockInVolumeBitmap(t *testing.T) {
 
 func TestMarkBlockInVolumeBitmap(t *testing.T) {
 	var tests = []struct {
-		blocks int
+		blocks uint16
 		want   bool
 	}{
 		{0, false},     // boot block
@@ -85,6 +85,29 @@ func TestMarkBlockInVolumeBitmap(t *testing.T) {
 			ans := checkFreeBlockInVolumeBitmap(volumeBitMap, tt.blocks)
 			if ans != tt.want {
 				t.Errorf("got %t, want %t", ans, tt.want)
+			}
+		})
+	}
+}
+
+func TestUpdateVolumeBitmap(t *testing.T) {
+	blockList := []uint16{10, 11, 12, 100, 120}
+
+	virtualDisk := NewMemoryFile(0x2000000)
+	CreateVolume(virtualDisk, "VIRTUAL.DISK", 0xFFFE)
+	updateVolumeBitmap(virtualDisk, blockList)
+
+	for _, tt := range blockList {
+		testname := fmt.Sprintf("%d", tt)
+		t.Run(testname, func(t *testing.T) {
+
+			volumeBitmap, err := ReadVolumeBitmap(virtualDisk)
+			if err != nil {
+				t.Error("got error, want nil")
+			}
+			free := checkFreeBlockInVolumeBitmap(volumeBitmap, tt)
+			if free {
+				t.Errorf("got true, want false")
 			}
 		})
 	}

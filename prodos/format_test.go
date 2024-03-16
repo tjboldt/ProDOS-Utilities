@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -13,9 +13,9 @@ import (
 
 func TestCreateVolume(t *testing.T) {
 	var tests = []struct {
-		blocks         int
+		blocks         uint16
 		wantVolumeName string
-		wantFreeBlocks int
+		wantFreeBlocks uint16
 	}{
 		{65535, "MAX", 65513},
 		{65500, "ALMOST.MAX", 65478},

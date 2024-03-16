@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -14,7 +14,7 @@ import (
 
 // CreateVolume formats a new ProDOS volume including boot block,
 // volume bitmap and empty directory
-func CreateVolume(readerWriter ReaderWriterAt, volumeName string, numberOfBlocks int) {
+func CreateVolume(readerWriter ReaderWriterAt, volumeName string, numberOfBlocks uint16) {
 	if numberOfBlocks > 65535 || numberOfBlocks < 64 {
 		return
 	}
@@ -26,7 +26,7 @@ func CreateVolume(readerWriter ReaderWriterAt, volumeName string, numberOfBlocks
 	}
 
 	blankBlock := make([]byte, 512)
-	for i := 0; i < numberOfBlocks; i++ {
+	for i := uint16(0); i < numberOfBlocks; i++ {
 		WriteBlock(readerWriter, i, blankBlock)
 	}
 
