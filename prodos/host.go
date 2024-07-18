@@ -118,11 +118,11 @@ func WriteFileFromFile(
 		ext := filepath.Ext(pathName)
 
 		if len(ext) > 0 {
-			switch ext {
+			switch strings.ToUpper(ext) {
 			case ".SYS", ".TXT", ".BAS", ".BIN":
 				pathName = strings.TrimSuffix(pathName, ext)
 			}
-			match, err := regexp.MatchString("^\\.(BIN|SYS|TXT|BAS)\\$[0-9]{4}", ext)
+			match, err := regexp.MatchString("^\\.(BIN|SYS|TXT|BAS|bin|sys|txt|bas|\\$[0-9,A-F,a-f]{2})\\$[0-9,A-F,a-f]{4}", ext)
 
 			if err == nil && match {
 				pathName = strings.TrimSuffix(pathName, ext)
@@ -160,24 +160,7 @@ func convertFileByType(inFileName string, inFile []byte) (uint16, uint8, []byte,
 	var err error
 
 	// Check for an AppleSingle file as produced by cc65
-	if // Magic number
-	binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
-		// Version number
-		binary.BigEndian.Uint32(inFile[0x04:]) == 0x00020000 &&
-		// Number of entries
-		binary.BigEndian.Uint16(inFile[0x18:]) == 0x0002 &&
-		// Data Fork ID
-		binary.BigEndian.Uint32(inFile[0x1A:]) == 0x00000001 &&
-		// Offset
-		binary.BigEndian.Uint32(inFile[0x1E:]) == 0x0000003A &&
-		// Length
-		binary.BigEndian.Uint32(inFile[0x22:]) == uint32(len(inFile))-0x3A &&
-		// ProDOS File Info ID
-		binary.BigEndian.Uint32(inFile[0x26:]) == 0x0000000B &&
-		// Offset
-		binary.BigEndian.Uint32(inFile[0x2A:]) == 0x00000032 &&
-		// Length
-		binary.BigEndian.Uint32(inFile[0x2E:]) == 0x00000008 {
+	if isAppleSingleMagicNumber(inFile) {
 
 		fileType = uint8(binary.BigEndian.Uint16(inFile[0x34:]))
 		auxType = uint16(binary.BigEndian.Uint32(inFile[0x36:]))
@@ -186,27 +169,15 @@ func convertFileByType(inFileName string, inFile []byte) (uint16, uint8, []byte,
 		// use extension to determine file type
 		ext := strings.ToUpper(filepath.Ext(inFileName))
 
-		match, err := regexp.MatchString("^\\.(BIN|SYS|TXT|BAS)\\$[0-9]{4}", ext)
+		match, err := regexp.MatchString("^\\.(BIN|SYS|TXT|BAS|bin|sys|txt|bas|\\$[0-9,A-F,a-f]{2})\\$[0-9,A-F,a-f]{4}", ext)
 
 		if err == nil && match {
-			parts := strings.Split(ext, "$")
-			extAuxType, err := strconv.ParseUint(parts[1], 16, 16)
+			auxType, fileType, err = parseRawFile(ext)
 			if err != nil {
 				return 0, 0, nil, err
 			}
-			auxType = uint16(extAuxType)
-			switch parts[0] {
-			case ".BAS":
-				fileType = 0xFC
-			case ".SYS":
-				fileType = 0xFF
-			case ".BIN":
-				fileType = 0x06
-			case ".TXT":
-				fileType = 0x04
-			}
 		} else {
-			switch ext {
+			switch strings.ToUpper(ext) {
 			case ".BAS":
 				inFile, err = ConvertTextToBasic(string(inFile))
 				fileType = 0xFC
@@ -229,9 +200,71 @@ func convertFileByType(inFileName string, inFile []byte) (uint16, uint8, []byte,
 				inFile = ConvertImageToHiResMonochrome(inFile)
 				fileType = 0x06
 				auxType = 0x2000
+			default:
+				fileType = 0x06
+				auxType = 0x0000
 			}
 		}
 	}
 
 	return auxType, fileType, inFile, err
+}
+
+func parseRawFile(ext string) (uint16, uint8, error) {
+	parts := strings.Split(ext, "$")
+	extAuxType, err := strconv.ParseUint(parts[1], 16, 16)
+	if err != nil {
+		return 0, 0, err
+	}
+	auxType := uint16(extAuxType)
+	fileType := uint8(0x06)
+	switch strings.ToUpper(parts[0]) {
+	case ".BAS":
+		fileType = 0xFC
+	case ".SYS":
+		fileType = 0xFF
+	case ".BIN":
+		fileType = 0x06
+	case ".TXT":
+		fileType = 0x04
+	default:
+
+		// we can assume parts[0] is empty and parts splitting on $
+		longFileType, err := strconv.ParseUint(parts[1][:2], 16, 8)
+		if err == nil {
+			fileType = uint8(longFileType)
+		}
+
+		// and we need to reparse aux type as it's in part 2 instead of 1
+		extAuxType, err := strconv.ParseUint(parts[2], 16, 16)
+		if err != nil {
+			return 0, 0, err
+		}
+		auxType = uint16(extAuxType)
+	}
+
+	return auxType, fileType, nil
+}
+
+func isAppleSingleMagicNumber(inFile []byte) bool {
+	if binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
+		// Version number
+		binary.BigEndian.Uint32(inFile[0x04:]) == 0x00020000 &&
+		// Number of entries
+		binary.BigEndian.Uint16(inFile[0x18:]) == 0x0002 &&
+		// Data Fork ID
+		binary.BigEndian.Uint32(inFile[0x1A:]) == 0x00000001 &&
+		// Offset
+		binary.BigEndian.Uint32(inFile[0x1E:]) == 0x0000003A &&
+		// Length
+		binary.BigEndian.Uint32(inFile[0x22:]) == uint32(len(inFile))-0x3A &&
+		// ProDOS File Info ID
+		binary.BigEndian.Uint32(inFile[0x26:]) == 0x0000000B &&
+		// Offset
+		binary.BigEndian.Uint32(inFile[0x2A:]) == 0x00000032 &&
+		// Length
+		binary.BigEndian.Uint32(inFile[0x2E:]) == 0x00000008 {
+		return true
+	}
+	return false
 }
