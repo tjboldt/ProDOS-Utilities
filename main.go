@@ -17,7 +17,7 @@ import (
 	"github.com/tjboldt/ProDOS-Utilities/prodos"
 )
 
-const version = "0.5.0"
+const version = "0.5.1"
 
 func main() {
 	var fileName string
@@ -32,7 +32,7 @@ func main() {
 	var auxType uint
 	flag.StringVar(&fileName, "d", "", "A ProDOS format drive image")
 	flag.StringVar(&pathName, "p", "", "Path name in ProDOS drive image (default is root of volume)")
-	flag.StringVar(&command, "c", "ls", "Command to execute: ls, get, put, rm, mkdir, readblock, writeblock, create, putall, putallrecursive")
+	flag.StringVar(&command, "c", "ls", "Command to execute: ls, create, rm, mkdir, get, getraw, put, putall, putallrecursive, readblock, writeblock")
 	flag.StringVar(&outFileName, "o", "", "Name of file to write")
 	flag.StringVar(&inFileName, "i", "", "Name of file to read")
 	flag.UintVar(&volumeSize, "s", 65535, "Number of blocks to create the volume with (default 65535, 64 to 65535, 0x0040 to 0xFFFF hex input accepted)")
@@ -53,6 +53,8 @@ func main() {
 		ls(fileName, pathName)
 	case "get":
 		get(fileName, pathName, outFileName)
+	case "getraw":
+		getRaw(fileName, pathName)
 	case "put":
 		put(fileName, pathName, uint8(fileType), uint16(auxType), inFileName)
 	case "readblock":
@@ -244,6 +246,36 @@ func get(fileName string, pathName string, outFileName string) {
 	} else {
 		outFile.Write(getFile)
 	}
+}
+
+func getRaw(fileName string, pathName string) {
+	checkPathName(pathName)
+	file, err := os.OpenFile(fileName, os.O_RDONLY, 0755)
+	if err != nil {
+		fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
+		os.Exit(1)
+	}
+	defer file.Close()
+	getFile, err := prodos.LoadFile(file, pathName)
+	if err != nil {
+		fmt.Printf("Failed to read file %s: %s\n", pathName, err)
+		os.Exit(1)
+	}
+	fileEntry, err := prodos.GetFileEntry(file, pathName)
+	if err != nil {
+		fmt.Printf("Failed to get file entry %s: %s\n", pathName, err)
+		os.Exit(1)
+	}
+	fileType := prodos.FileTypeToString(fileEntry.FileType)
+	outFileName := fmt.Sprintf("%s.%s$%04X", fileEntry.FileName, fileType, fileEntry.AuxType)
+
+	outFile, err := os.Create(outFileName)
+	if err != nil {
+		fmt.Printf("Failed to create output file %s: %s\n", outFileName, err)
+		os.Exit(1)
+	}
+
+	outFile.Write(getFile)
 }
 
 func ls(fileName string, pathName string) {
