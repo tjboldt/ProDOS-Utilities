@@ -16,6 +16,7 @@
 
 # Project specific
 *.hdv
+*.dsk
 *.bin
 *.xxd
 *.swp
