@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2022-2023
+// Copyright Terence J. Boldt (c)2022-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -26,6 +28,9 @@ func AddFilesFromHostDirectory(
 ) error {
 
 	path, err := makeFullPath(path, readerWriter)
+	if err != nil {
+		return err
+	}
 
 	if !strings.HasSuffix(path, "/") {
 		path = path + "/"
@@ -75,8 +80,8 @@ func AddFilesFromHostDirectory(
 func WriteFileFromFile(
 	readerWriter ReaderWriterAt,
 	pathName string,
-	fileType int,
-	auxType int,
+	fileType uint8,
+	auxType uint16,
 	modifiedTime time.Time,
 	inFileName string,
 	ignoreDuplicates bool,
@@ -113,8 +118,13 @@ func WriteFileFromFile(
 		ext := filepath.Ext(pathName)
 
 		if len(ext) > 0 {
-			switch ext {
+			switch strings.ToUpper(ext) {
 			case ".SYS", ".TXT", ".BAS", ".BIN":
+				pathName = strings.TrimSuffix(pathName, ext)
+			}
+			match, err := regexp.MatchString("^\\.(BIN|SYS|TXT|BAS|bin|sys|txt|bas|\\$[0-9,A-F,a-f]{2})\\$[0-9,A-F,a-f]{4}", ext)
+
+			if err == nil && match {
 				pathName = strings.TrimSuffix(pathName, ext)
 			}
 		}
@@ -140,15 +150,104 @@ func WriteFileFromFile(
 	return WriteFile(readerWriter, pathName, fileType, auxType, time.Now(), modifiedTime, inFile)
 }
 
-func convertFileByType(inFileName string, inFile []byte) (int, int, []byte, error) {
-	fileType := 0x06  // default to BIN
-	auxType := 0x2000 // default to $2000
+func convertFileByType(inFileName string, inFile []byte) (uint16, uint8, []byte, error) {
+	var auxType uint16
+	var fileType uint8
+
+	fileType = 0x06  // default to BIN
+	auxType = 0x2000 // default to $2000
 
 	var err error
 
 	// Check for an AppleSingle file as produced by cc65
-	if // Magic number
-	binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
+	if isAppleSingleMagicNumber(inFile) {
+
+		fileType = uint8(binary.BigEndian.Uint16(inFile[0x34:]))
+		auxType = uint16(binary.BigEndian.Uint32(inFile[0x36:]))
+		inFile = inFile[0x3A:]
+	} else {
+		// use extension to determine file type
+		ext := strings.ToUpper(filepath.Ext(inFileName))
+
+		match, err := regexp.MatchString("^\\.(BIN|SYS|TXT|BAS|bin|sys|txt|bas|\\$[0-9,A-F,a-f]{2})\\$[0-9,A-F,a-f]{4}", ext)
+
+		if err == nil && match {
+			auxType, fileType, err = parseRawFile(ext)
+			if err != nil {
+				return 0, 0, nil, err
+			}
+		} else {
+			switch strings.ToUpper(ext) {
+			case ".BAS":
+				inFile, err = ConvertTextToBasic(string(inFile))
+				fileType = 0xFC
+				auxType = 0x0801
+
+				if err != nil {
+					return 0, 0, nil, err
+				}
+			case ".SYS":
+				fileType = 0xFF
+				auxType = 0x2000
+			case ".BIN":
+				fileType = 0x06
+				auxType = 0x2000
+			case ".TXT":
+				inFile = []byte(strings.ReplaceAll(strings.ReplaceAll(string(inFile), "\r\n", "r"), "\n", "\r"))
+				fileType = 0x04
+				auxType = 0x0000
+			case ".JPG", ".PNG":
+				inFile = ConvertImageToHiResMonochrome(inFile)
+				fileType = 0x06
+				auxType = 0x2000
+			default:
+				fileType = 0x06
+				auxType = 0x0000
+			}
+		}
+	}
+
+	return auxType, fileType, inFile, err
+}
+
+func parseRawFile(ext string) (uint16, uint8, error) {
+	parts := strings.Split(ext, "$")
+	extAuxType, err := strconv.ParseUint(parts[1], 16, 16)
+	if err != nil {
+		return 0, 0, err
+	}
+	auxType := uint16(extAuxType)
+	fileType := uint8(0x06)
+	switch strings.ToUpper(parts[0]) {
+	case ".BAS":
+		fileType = 0xFC
+	case ".SYS":
+		fileType = 0xFF
+	case ".BIN":
+		fileType = 0x06
+	case ".TXT":
+		fileType = 0x04
+	default:
+
+		// we can assume parts[0] is empty and parts splitting on $
+		longFileType, err := strconv.ParseUint(parts[1][:2], 16, 8)
+		if err == nil {
+			fileType = uint8(longFileType)
+		}
+
+		// and we need to reparse aux type as it's in part 2 instead of 1
+		extAuxType, err := strconv.ParseUint(parts[2], 16, 16)
+		if err != nil {
+			return 0, 0, err
+		}
+		auxType = uint16(extAuxType)
+	}
+
+	return auxType, fileType, nil
+}
+
+func isAppleSingleMagicNumber(inFile []byte) bool {
+	if binary.BigEndian.Uint32(inFile[0x00:]) == 0x00051600 &&
 		// Version number
 		binary.BigEndian.Uint32(inFile[0x04:]) == 0x00020000 &&
 		// Number of entries
@@ -165,39 +264,7 @@ func convertFileByType(inFileName string, inFile []byte) (int, int, []byte, erro
 		binary.BigEndian.Uint32(inFile[0x2A:]) == 0x00000032 &&
 		// Length
 		binary.BigEndian.Uint32(inFile[0x2E:]) == 0x00000008 {
-
-		fileType = int(binary.BigEndian.Uint16(inFile[0x34:]))
-		auxType = int(binary.BigEndian.Uint32(inFile[0x36:]))
-		inFile = inFile[0x3A:]
-	} else {
-		// use extension to determine file type
-		ext := strings.ToUpper(filepath.Ext(inFileName))
-
-		switch ext {
-		case ".BAS":
-			inFile, err = ConvertTextToBasic(string(inFile))
-			fileType = 0xFC
-			auxType = 0x0801
-
-			if err != nil {
-				return 0, 0, nil, err
-			}
-		case ".SYS":
-			fileType = 0xFF
-			auxType = 0x2000
-		case ".BIN":
-			fileType = 0x06
-			auxType = 0x2000
-		case ".TXT":
-			inFile = []byte(strings.ReplaceAll(strings.ReplaceAll(string(inFile), "\r\n", "r"), "\n", "\r"))
-			fileType = 0x04
-			auxType = 0x0000
-		case ".JPG", ".PNG":
-			inFile = ConvertImageToHiResMonochrome(inFile)
-			fileType = 0x06
-			auxType = 0x2000
-		}
+		return true
 	}
-
-	return auxType, fileType, inFile, err
+	return false
 }

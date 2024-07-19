@@ -16,8 +16,10 @@
 
 # Project specific
 *.hdv
+*.dsk
 *.bin
 *.xxd
 *.swp
 .DS_Store
 ProDOS-Utilities
+binaries

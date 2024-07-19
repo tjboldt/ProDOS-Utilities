@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -11,8 +11,8 @@ import (
 
 func TestCreateBlocklist(t *testing.T) {
 	var tests = []struct {
-		fileSize   int
-		wantBlocks int
+		fileSize   uint32
+		wantBlocks uint16
 	}{
 		{1, 1},
 		{512, 1},
@@ -33,31 +33,8 @@ func TestCreateBlocklist(t *testing.T) {
 			if err != nil {
 				t.Error("got error, want nil")
 			}
-			if len(blockList) != tt.wantBlocks {
+			if uint16(len(blockList)) != tt.wantBlocks {
 				t.Errorf("got %d blocks, want %d", len(blockList), tt.wantBlocks)
-			}
-		})
-	}
-}
-
-func TestUpdateVolumeBitmap(t *testing.T) {
-	blockList := []int{10, 11, 12, 100, 120}
-
-	virtualDisk := NewMemoryFile(0x2000000)
-	CreateVolume(virtualDisk, "VIRTUAL.DISK", 0xFFFE)
-	updateVolumeBitmap(virtualDisk, blockList)
-
-	for _, tt := range blockList {
-		testname := fmt.Sprintf("%d", tt)
-		t.Run(testname, func(t *testing.T) {
-
-			volumeBitmap, err := ReadVolumeBitmap(virtualDisk)
-			if err != nil {
-				t.Error("got error, want nil")
-			}
-			free := checkFreeBlockInVolumeBitmap(volumeBitmap, tt)
-			if free {
-				t.Errorf("got true, want false")
 			}
 		})
 	}

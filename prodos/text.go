@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -25,7 +25,7 @@ func TimeToString(printTime time.Time) string {
 }
 
 // FileTypeToString display the file type as a string
-func FileTypeToString(fileType int) string {
+func FileTypeToString(fileType uint8) string {
 	switch fileType {
 	case 1:
 		return "BAD"
@@ -159,7 +159,7 @@ func DumpBlock(buffer []byte) {
 }
 
 // DumpDirectory displays the directory similar to ProDOS catalog
-func DumpDirectory(blocksFree int, totalBlocks int, path string, fileEntries []FileEntry) {
+func DumpDirectory(blocksFree uint16, totalBlocks uint16, path string, fileEntries []FileEntry) {
 	fmt.Printf("%s\n\n", path)
 	fmt.Printf("NAME          TYPE BLOCKS  MODIFIED          CREATED           ENDFILE  SUBTYPE\n\n")
 

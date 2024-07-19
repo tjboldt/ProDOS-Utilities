@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2024
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -17,7 +17,7 @@ import (
 	"github.com/tjboldt/ProDOS-Utilities/prodos"
 )
 
-const version = "0.4.9"
+const version = "0.5.1"
 
 func main() {
 	var fileName string
@@ -25,21 +25,21 @@ func main() {
 	var command string
 	var outFileName string
 	var inFileName string
-	var blockNumber int
-	var volumeSize int
+	var blockNumber uint
+	var volumeSize uint
 	var volumeName string
-	var fileType int
-	var auxType int
+	var fileType uint
+	var auxType uint
 	flag.StringVar(&fileName, "d", "", "A ProDOS format drive image")
 	flag.StringVar(&pathName, "p", "", "Path name in ProDOS drive image (default is root of volume)")
-	flag.StringVar(&command, "c", "ls", "Command to execute: ls, get, put, rm, mkdir, readblock, writeblock, create, putall, putallrecursive")
+	flag.StringVar(&command, "c", "ls", "Command to execute: ls, create, rm, mkdir, get, getraw, put, putall, putallrecursive, readblock, writeblock")
 	flag.StringVar(&outFileName, "o", "", "Name of file to write")
 	flag.StringVar(&inFileName, "i", "", "Name of file to read")
-	flag.IntVar(&volumeSize, "s", 65535, "Number of blocks to create the volume with (default 65535, 64 to 65535, 0x0040 to 0xFFFF hex input accepted)")
+	flag.UintVar(&volumeSize, "s", 65535, "Number of blocks to create the volume with (default 65535, 64 to 65535, 0x0040 to 0xFFFF hex input accepted)")
 	flag.StringVar(&volumeName, "v", "NO.NAME", "Specifiy a name for the volume from 1 to 15 characters")
-	flag.IntVar(&blockNumber, "b", 0, "A block number to read/write from 0 to 65535 (0x0000 to 0xFFFF hex input accepted)")
-	flag.IntVar(&fileType, "t", 0, "ProDOS FileType: 0x04 for TXT, 0x06 for BIN, 0xFC for BAS, 0xFF for SYS etc., omit to autodetect")
-	flag.IntVar(&auxType, "a", 0, "ProDOS AuxType from 0 to 65535 (0x0000 to 0xFFFF hex input accepted), omit to autodetect")
+	flag.UintVar(&blockNumber, "b", 0, "A block number to read/write from 0 to 65535 (0x0000 to 0xFFFF hex input accepted)")
+	flag.UintVar(&fileType, "t", 0, "ProDOS FileType: 0x04 for TXT, 0x06 for BIN, 0xFC for BAS, 0xFF for SYS etc., omit to autodetect")
+	flag.UintVar(&auxType, "a", 0, "ProDOS AuxType from 0 to 65535 (0x0000 to 0xFFFF hex input accepted), omit to autodetect")
 	flag.Parse()
 
 	if len(fileName) == 0 {
@@ -53,14 +53,16 @@ func main() {
 		ls(fileName, pathName)
 	case "get":
 		get(fileName, pathName, outFileName)
+	case "getraw":
+		getRaw(fileName, pathName)
 	case "put":
-		put(fileName, pathName, fileType, auxType, inFileName)
+		put(fileName, pathName, uint8(fileType), uint16(auxType), inFileName)
 	case "readblock":
-		readBlock(blockNumber, fileName)
+		readBlock(uint16(blockNumber), fileName)
 	case "writeblock":
-		writeBlock(blockNumber, fileName, inFileName)
+		writeBlock(uint16(blockNumber), fileName, inFileName)
 	case "create":
-		create(fileName, volumeName, volumeSize)
+		create(fileName, volumeName, uint16(volumeSize))
 	case "putall":
 		putall(fileName, inFileName, pathName, false)
 	case "putallrecursive":
@@ -89,6 +91,10 @@ func dumpFile(fileName string, pathName string) {
 	}
 	defer file.Close()
 	fileEntry, err := prodos.GetFileEntry(file, pathName)
+	if err != nil {
+		fmt.Printf("Failed to path %s:\n  %s", pathName, err)
+		os.Exit(1)
+	}
 	prodos.DumpFileEntry(fileEntry)
 }
 
@@ -101,6 +107,10 @@ func dumpDirectory(fileName string, pathName string) {
 	}
 	defer file.Close()
 	_, directoryheader, _, err := prodos.ReadDirectory(file, pathName)
+	if err != nil {
+		fmt.Printf("Failed to read directory %s:\n  %s", pathName, err)
+		os.Exit(1)
+	}
 	prodos.DumpDirectoryHeader(directoryheader)
 }
 
@@ -147,7 +157,7 @@ func putall(fileName string, inFileName string, pathName string, recursive bool)
 	}
 }
 
-func create(fileName string, volumeName string, volumeSize int) {
+func create(fileName string, volumeName string, volumeSize uint16) {
 	file, err := os.Create(fileName)
 	if err != nil {
 		fmt.Printf("failed to create file: %s\n", err)
@@ -157,7 +167,7 @@ func create(fileName string, volumeName string, volumeSize int) {
 	prodos.CreateVolume(file, volumeName, volumeSize)
 }
 
-func writeBlock(blockNumber int, fileName string, inFileName string) {
+func writeBlock(blockNumber uint16, fileName string, inFileName string) {
 	checkInFileName(inFileName)
 	fmt.Printf("Writing block 0x%04X (%d):\n\n", blockNumber, blockNumber)
 	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
@@ -174,7 +184,7 @@ func writeBlock(blockNumber int, fileName string, inFileName string) {
 	prodos.WriteBlock(file, blockNumber, inFile)
 }
 
-func readBlock(blockNumber int, fileName string) {
+func readBlock(blockNumber uint16, fileName string) {
 	fmt.Printf("Reading block 0x%04X (%d):\n\n", blockNumber, blockNumber)
 	file, err := os.OpenFile(fileName, os.O_RDONLY, 0755)
 	if err != nil {
@@ -190,7 +200,7 @@ func readBlock(blockNumber int, fileName string) {
 	prodos.DumpBlock(block)
 }
 
-func put(fileName string, pathName string, fileType int, auxType int, inFileName string) {
+func put(fileName string, pathName string, fileType uint8, auxType uint16, inFileName string) {
 	checkPathName(pathName)
 	checkInFileName(inFileName)
 	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
@@ -200,6 +210,9 @@ func put(fileName string, pathName string, fileType int, auxType int, inFileName
 	}
 	defer file.Close()
 	fileInfo, err := os.Stat(fileName)
+	if err != nil {
+		fmt.Printf("Failed get fileInfo for %s - %s", fileName, err)
+	}
 
 	err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName, false)
 	if err != nil {
@@ -229,10 +242,40 @@ func get(fileName string, pathName string, outFileName string) {
 		os.Exit(1)
 	}
 	if strings.HasSuffix(strings.ToLower(outFileName), ".bas") {
-		fmt.Fprintf(outFile, prodos.ConvertBasicToText(getFile))
+		fmt.Fprint(outFile, prodos.ConvertBasicToText(getFile))
 	} else {
 		outFile.Write(getFile)
 	}
+}
+
+func getRaw(fileName string, pathName string) {
+	checkPathName(pathName)
+	file, err := os.OpenFile(fileName, os.O_RDONLY, 0755)
+	if err != nil {
+		fmt.Printf("Failed to open drive image %s:\n  %s", fileName, err)
+		os.Exit(1)
+	}
+	defer file.Close()
+	getFile, err := prodos.LoadFile(file, pathName)
+	if err != nil {
+		fmt.Printf("Failed to read file %s: %s\n", pathName, err)
+		os.Exit(1)
+	}
+	fileEntry, err := prodos.GetFileEntry(file, pathName)
+	if err != nil {
+		fmt.Printf("Failed to get file entry %s: %s\n", pathName, err)
+		os.Exit(1)
+	}
+	fileType := prodos.FileTypeToString(fileEntry.FileType)
+	outFileName := fmt.Sprintf("%s.%s$%04X", fileEntry.FileName, fileType, fileEntry.AuxType)
+
+	outFile, err := os.Create(outFileName)
+	if err != nil {
+		fmt.Printf("Failed to create output file %s: %s\n", outFileName, err)
+		os.Exit(1)
+	}
+
+	outFile.Write(getFile)
 }
 
 func ls(fileName string, pathName string) {
