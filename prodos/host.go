@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -41,6 +42,8 @@ func AddFilesFromHostDirectory(
 		return err
 	}
 
+	cacheDir := getCacheDir(files)
+
 	for _, file := range files {
 		info, err := file.Info()
 		if err != nil {
@@ -48,7 +51,7 @@ func AddFilesFromHostDirectory(
 		}
 
 		if file.Name()[0] != '.' && !file.IsDir() && info.Size() > 0 && info.Size() <= 0x1000000 {
-			err = WriteFileFromFile(readerWriter, path, 0, 0, info.ModTime(), filepath.Join(directory, file.Name()), true)
+			err = WriteFileFromFile(readerWriter, path, 0, 0, info.ModTime(), filepath.Join(directory, file.Name()), cacheDir, true)
 			if err != nil {
 				return err
 			}
@@ -84,6 +87,7 @@ func WriteFileFromFile(
 	auxType uint16,
 	modifiedTime time.Time,
 	inFileName string,
+	cacheDir fs.DirEntry,
 	ignoreDuplicates bool,
 ) error {
 
@@ -267,4 +271,14 @@ func isAppleSingleMagicNumber(inFile []byte) bool {
 		return true
 	}
 	return false
+}
+
+func getCacheDir(files []fs.DirEntry) fs.DirEntry {
+	for _, file := range files {
+		if file.Name() == ".prodoscache" {
+			return file
+		}
+	}
+
+	return nil
 }
