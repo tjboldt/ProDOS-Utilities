@@ -214,7 +214,7 @@ func put(fileName string, pathName string, fileType uint8, auxType uint16, inFil
 		fmt.Printf("Failed get fileInfo for %s - %s", fileName, err)
 	}
 
-	err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName, false)
+	err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName, nil, false)
 	if err != nil {
 		fmt.Printf("Failed to write file %s", err)
 	}
