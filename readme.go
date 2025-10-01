@@ -1,4 +1,4 @@
-// Copyright Terence J. Boldt (c)2021-2023
+// Copyright Terence J. Boldt (c)2021-2025
 // Use of this source code is governed by an MIT
 // license that can be found in the LICENSE file.
 
@@ -14,7 +14,7 @@ func printReadme() {
 	fmt.Println(`
 MIT License
 
-Copyright (c)2021-2024 Terence Boldt
+Copyright (c)2021-2025 Terence Boldt
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
