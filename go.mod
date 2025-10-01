@@ -1,5 +1,5 @@
 module github.com/tjboldt/ProDOS-Utilities
 
-go 1.16
+go 1.24.0
 
-require golang.org/x/image v0.19.0
+require golang.org/x/image v0.31.0
