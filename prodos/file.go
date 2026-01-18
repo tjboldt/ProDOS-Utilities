@@ -28,11 +28,16 @@ func LoadFile(reader io.ReaderAt, path string) ([]byte, error) {
 	}
 
 	buffer := make([]byte, fileEntry.EndOfFile)
+	var block []byte
 
 	for i := uint16(0); i < uint16(len(blockList)); i++ {
-		block, err := ReadBlock(reader, blockList[i])
-		if err != nil {
-			return nil, err
+		if blockList[i] == 0 {
+			block = zeroData()
+		} else {
+			block, err = ReadBlock(reader, blockList[i])
+			if err != nil {
+				return nil, err
+			}
 		}
 		for j := uint16(0); j < 512 && uint32(i)*512+uint32(j) < fileEntry.EndOfFile; j++ {
 			buffer[i*512+j] = block[j]
@@ -113,6 +118,10 @@ func WriteFile(readerWriter ReaderWriterAt, path string, fileType uint8, auxType
 	return incrementFileCount(readerWriter, fileEntry)
 }
 
+func zeroData() []byte {
+	return make([]byte, 512)
+}
+
 func incrementFileCount(readerWriter ReaderWriterAt, fileEntry FileEntry) error {
 	directoryHeaderBlock, err := ReadBlock(readerWriter, fileEntry.HeaderPointer)
 	if err != nil {
@@ -153,7 +162,9 @@ func DeleteFile(readerWriter ReaderWriterAt, path string) error {
 		return err
 	}
 	for i := 0; i < len(blocks); i++ {
-		freeBlockInVolumeBitmap(volumeBitmap, blocks[i])
+		if blocks[i] != 0 {
+			freeBlockInVolumeBitmap(volumeBitmap, blocks[i])
+		}
 	}
 	writeVolumeBitmap(readerWriter, volumeBitmap)
 
@@ -339,9 +350,10 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]uin
 		}
 		return blocks, nil
 	case StorageTree:
-		// this is actually too large
-		dataBlocks := make([]uint16, fileEntry.BlocksUsed)
-		// this is also actually too large
+		// the number of dataBlocks in the list can be longer than the actual blocks used
+		// because of sparse files
+		dataBlocks := make([]uint16, fileEntry.EndOfFile/512)
+		// this can be more than needed
 		numberOfIndexBlocks := fileEntry.BlocksUsed/256 + 2
 		indexBlocks := make([]uint16, numberOfIndexBlocks)
 		masterIndex, err := ReadBlock(reader, fileEntry.KeyPointer)
@@ -352,9 +364,11 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]uin
 
 		indexBlocks[0] = fileEntry.KeyPointer
 		indexBlockCount := 1
+		bytesRemaining := fileEntry.EndOfFile
 
 		for i := uint16(0); i < 128; i++ {
 			indexBlock := uint16(masterIndex[i]) + uint16(masterIndex[i+256])*256
+			// even with sparse files, the index blocks should not be 0, only data blocks can be
 			if indexBlock == 0 {
 				break
 			}
@@ -364,11 +378,12 @@ func getBlocklist(reader io.ReaderAt, fileEntry FileEntry, dataOnly bool) ([]uin
 			if err != nil {
 				return nil, err
 			}
-			for j := uint16(0); j < 256 && i*256+j < fileEntry.BlocksUsed; j++ {
+			for j := uint16(0); j < 256 && bytesRemaining > 0; j++ {
 				if (uint16(index[j]) + uint16(index[j+256])*256) == 0 {
 					break
 				}
 				numberOfDataBlocks++
+				bytesRemaining -= 512
 				dataBlocks[i*256+j] = uint16(index[j]) + uint16(index[j+256])*256
 			}
 		}
