@@ -14,12 +14,13 @@ func TestCreateBlocklist(t *testing.T) {
 		fileSize   uint32
 		wantBlocks uint16
 	}{
-		{1, 1},
+		{1, 1}, // seedling
 		{512, 1},
-		{513, 3},
+		{513, 3}, // sapling
 		{2048, 5},
 		{2049, 6},
 		{17128, 35},
+		{131073, 260}, // tree
 	}
 
 	virtualDisk := NewMemoryFile(0x2000000)
