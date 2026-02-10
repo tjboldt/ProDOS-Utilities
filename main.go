@@ -11,6 +11,8 @@ package main
 import (
 	"flag"
 	"fmt"
+	"image/jpeg"
+	"image/png"
 	"os"
 	"strings"
 
@@ -241,8 +243,31 @@ func get(fileName string, pathName string, outFileName string) {
 		fmt.Printf("Failed to create output file %s: %s\n", outFileName, err)
 		os.Exit(1)
 	}
-	if strings.HasSuffix(strings.ToLower(outFileName), ".bas") {
+	outLower := strings.ToLower(outFileName)
+	if strings.HasSuffix(outLower, ".bas") {
 		fmt.Fprint(outFile, prodos.ConvertBasicToText(getFile))
+	} else if strings.HasSuffix(outLower, ".png") {
+		img, err := prodos.ConvertHiResToCRTImage(getFile)
+		if err != nil {
+			fmt.Printf("Failed to convert hi-res image: %s\n", err)
+			os.Exit(1)
+		}
+		err = png.Encode(outFile, img)
+		if err != nil {
+			fmt.Printf("Failed to encode PNG: %s\n", err)
+			os.Exit(1)
+		}
+	} else if strings.HasSuffix(outLower, ".jpg") || strings.HasSuffix(outLower, ".jpeg") {
+		img, err := prodos.ConvertHiResToCRTImage(getFile)
+		if err != nil {
+			fmt.Printf("Failed to convert hi-res image: %s\n", err)
+			os.Exit(1)
+		}
+		err = jpeg.Encode(outFile, img, nil)
+		if err != nil {
+			fmt.Printf("Failed to encode JPEG: %s\n", err)
+			os.Exit(1)
+		}
 	} else {
 		outFile.Write(getFile)
 	}

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"math"
 
 	// force import jpeg support by init only
 	_ "image/jpeg"
@@ -221,4 +222,211 @@ func ConvertImageToHiResColour(imageBytes []byte) []byte {
 	}
 
 	return hires
+}
+
+// Everything below this line was written by Claude Opus 4.6 -- it took about 7 minutes to create
+
+// ConvertHiResToMonochromeImage converts Apple II hi-res image data to a monochrome image
+func ConvertHiResToMonochromeImage(hiresData []byte) (*image.NRGBA, error) {
+	if len(hiresData) > 8192 {
+		return nil, fmt.Errorf("hi-res image data must be at most 8192 bytes, got %d", len(hiresData))
+	}
+	if len(hiresData) < 8192 {
+		padded := make([]byte, 8192)
+		copy(padded, hiresData)
+		hiresData = padded
+	}
+
+	img := image.NewNRGBA(image.Rect(0, 0, 280, 192))
+
+	for y := 0; y < 192; y++ {
+		for x := 0; x < 280; x++ {
+			byteIndex := offsets[y] + x/7
+			if hiresData[byteIndex]&pixel[x%7] != 0 {
+				img.Set(x, y, color.White)
+			} else {
+				img.Set(x, y, color.Black)
+			}
+		}
+	}
+
+	return img, nil
+}
+
+// ConvertHiResToColourImage converts Apple II hi-res image data to a colour image
+func ConvertHiResToColourImage(hiresData []byte) (*image.NRGBA, error) {
+	if len(hiresData) > 8192 {
+		return nil, fmt.Errorf("hi-res image data must be at most 8192 bytes, got %d", len(hiresData))
+	}
+	if len(hiresData) < 8192 {
+		padded := make([]byte, 8192)
+		copy(padded, hiresData)
+		hiresData = padded
+	}
+
+	black := color.NRGBA{0, 0, 0, 255}
+	green := color.NRGBA{20, 245, 60, 255}
+	purple := color.NRGBA{255, 68, 253, 255}
+	white := color.NRGBA{255, 255, 255, 255}
+	orange := color.NRGBA{255, 106, 60, 255}
+	blue := color.NRGBA{20, 207, 253, 255}
+
+	img := image.NewNRGBA(image.Rect(0, 0, 280, 192))
+
+	for y := 0; y < 192; y++ {
+		for x := 0; x < 280; x += 2 {
+			evenByteIndex := offsets[y] + x/7
+			oddByteIndex := offsets[y] + (x+1)/7
+			evenSet := (hiresData[evenByteIndex] & pixel[x%7]) != 0
+			oddSet := (hiresData[oddByteIndex] & pixel[(x+1)%7]) != 0
+			highBit := (hiresData[evenByteIndex] & 0x80) != 0
+
+			var c color.NRGBA
+			switch {
+			case !evenSet && !oddSet:
+				c = black
+			case evenSet && oddSet:
+				c = white
+			case evenSet && !oddSet:
+				if highBit {
+					c = blue
+				} else {
+					c = purple
+				}
+			case !evenSet && oddSet:
+				if highBit {
+					c = orange
+				} else {
+					c = green
+				}
+			}
+
+			img.Set(x, y, c)
+			img.Set(x+1, y, c)
+		}
+	}
+
+	return img, nil
+}
+
+// ConvertHiResToCRTImage converts Apple II hi-res image data to a CRT-simulated colour image
+// with scan lines, phosphor blur, and 4x scaling for modern displays
+func ConvertHiResToCRTImage(hiresData []byte) (*image.NRGBA, error) {
+	baseImg, err := ConvertHiResToColourImage(hiresData)
+	if err != nil {
+		return nil, err
+	}
+
+	srcBounds := baseImg.Bounds()
+	scale := 4
+	dstW := srcBounds.Dx() * scale // 1120
+	dstH := srcBounds.Dy() * scale // 768
+
+	// Scale up with nearest-neighbor for crisp pixels
+	scaled := image.NewNRGBA(image.Rect(0, 0, dstW, dstH))
+	draw.NearestNeighbor.Scale(scaled, scaled.Bounds(), baseImg, srcBounds, draw.Over, nil)
+
+	// Apply Gaussian blur to simulate phosphor glow
+	blurred := gaussianBlur(scaled, 1.2)
+
+	// Apply scan lines — darken the bottom row of each group of `scale` rows
+	for y := 0; y < dstH; y++ {
+		pos := y % scale
+		var brightness float64
+		switch pos {
+		case 0:
+			brightness = 0.85
+		case 1, 2:
+			brightness = 1.0
+		case 3:
+			brightness = 0.20
+		}
+		if brightness < 1.0 {
+			for x := 0; x < dstW; x++ {
+				idx := blurred.PixOffset(x, y)
+				blurred.Pix[idx+0] = uint8(float64(blurred.Pix[idx+0]) * brightness)
+				blurred.Pix[idx+1] = uint8(float64(blurred.Pix[idx+1]) * brightness)
+				blurred.Pix[idx+2] = uint8(float64(blurred.Pix[idx+2]) * brightness)
+			}
+		}
+	}
+
+	return blurred, nil
+}
+
+// gaussianBlur applies a separable Gaussian blur to the image
+func gaussianBlur(src *image.NRGBA, sigma float64) *image.NRGBA {
+	bounds := src.Bounds()
+	w := bounds.Dx()
+	h := bounds.Dy()
+
+	// Generate 1D Gaussian kernel
+	radius := int(math.Ceil(sigma * 2.5))
+	size := radius*2 + 1
+	kernel := make([]float64, size)
+	sum := 0.0
+	for i := range kernel {
+		x := float64(i - radius)
+		kernel[i] = math.Exp(-(x * x) / (2 * sigma * sigma))
+		sum += kernel[i]
+	}
+	for i := range kernel {
+		kernel[i] /= sum
+	}
+
+	// Horizontal pass
+	tmp := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			var r, g, b float64
+			for k := -radius; k <= radius; k++ {
+				sx := x + k
+				if sx < 0 {
+					sx = 0
+				}
+				if sx >= w {
+					sx = w - 1
+				}
+				idx := src.PixOffset(sx, y)
+				weight := kernel[k+radius]
+				r += float64(src.Pix[idx+0]) * weight
+				g += float64(src.Pix[idx+1]) * weight
+				b += float64(src.Pix[idx+2]) * weight
+			}
+			idx := tmp.PixOffset(x, y)
+			tmp.Pix[idx+0] = uint8(r)
+			tmp.Pix[idx+1] = uint8(g)
+			tmp.Pix[idx+2] = uint8(b)
+			tmp.Pix[idx+3] = 255
+		}
+	}
+
+	// Vertical pass
+	dst := image.NewNRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			var r, g, b float64
+			for k := -radius; k <= radius; k++ {
+				sy := y + k
+				if sy < 0 {
+					sy = 0
+				}
+				if sy >= h {
+					sy = h - 1
+				}
+				idx := tmp.PixOffset(x, sy)
+				weight := kernel[k+radius]
+				r += float64(tmp.Pix[idx+0]) * weight
+				g += float64(tmp.Pix[idx+1]) * weight
+				b += float64(tmp.Pix[idx+2]) * weight
+			}
+			idx := dst.PixOffset(x, y)
+			dst.Pix[idx+0] = uint8(r)
+			dst.Pix[idx+1] = uint8(g)
+			dst.Pix[idx+2] = uint8(b)
+			dst.Pix[idx+3] = 255
+		}
+	}
+
+	return dst
 }
