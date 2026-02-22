@@ -10,3 +10,7 @@ GOOS=windows GOARCH=amd64 go build -o binaries/windows/intel/ProDOS-Utilities.ex
 GOOS=linux GOARCH=amd64 go build -o binaries/linux/intel/ProDOS-Utilities
 GOOS=linux GOARCH=arm go build -o binaries/linux/arm32/ProDOS-Utilities
 GOOS=linux GOARCH=arm64 go build -o binaries/linux/arm64/ProDOS-Utilities
+ 
+zip -r binaries/macos.zip binaries/macos/*
+zip -r binaries/windows.zip binaries/windows/*
+zip -r binaries/linux.zip binaries/linux/*
