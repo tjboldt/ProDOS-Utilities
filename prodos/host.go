@@ -26,6 +26,7 @@ func AddFilesFromHostDirectory(
 	directory string,
 	path string,
 	recursive bool,
+	colour bool,
 ) error {
 
 	path, err := makeFullPath(path, readerWriter)
@@ -51,7 +52,7 @@ func AddFilesFromHostDirectory(
 		}
 
 		if file.Name()[0] != '.' && !file.IsDir() && info.Size() > 0 && info.Size() <= 0x1000000 {
-			err = WriteFileFromFile(readerWriter, path, 0, 0, info.ModTime(), filepath.Join(directory, file.Name()), cacheDir, true)
+			err = WriteFileFromFile(readerWriter, path, 0, 0, info.ModTime(), filepath.Join(directory, file.Name()), cacheDir, true, colour)
 			if err != nil {
 				return err
 			}
@@ -69,7 +70,7 @@ func AddFilesFromHostDirectory(
 			if err != nil {
 				return err
 			}
-			err = AddFilesFromHostDirectory(readerWriter, newHostDirectory, newFullPath+"/", recursive)
+			err = AddFilesFromHostDirectory(readerWriter, newHostDirectory, newFullPath+"/", recursive, colour)
 			if err != nil {
 				return err
 			}
@@ -89,6 +90,7 @@ func WriteFileFromFile(
 	inFileName string,
 	cacheDir fs.DirEntry,
 	ignoreDuplicates bool,
+	colour bool,
 ) error {
 
 	inFile, err := os.ReadFile(inFileName)
@@ -98,7 +100,7 @@ func WriteFileFromFile(
 	}
 
 	if auxType == 0 && fileType == 0 {
-		auxType, fileType, inFile, err = convertFileByType(inFileName, inFile)
+		auxType, fileType, inFile, err = convertFileByType(inFileName, inFile, colour)
 		if err != nil {
 			errString := fmt.Sprintf("failed to convert file: %s", err)
 			return errors.New(errString)
@@ -154,7 +156,7 @@ func WriteFileFromFile(
 	return WriteFile(readerWriter, pathName, fileType, auxType, time.Now(), modifiedTime, inFile)
 }
 
-func convertFileByType(inFileName string, inFile []byte) (uint16, uint8, []byte, error) {
+func convertFileByType(inFileName string, inFile []byte, colour bool) (uint16, uint8, []byte, error) {
 	var auxType uint16
 	var fileType uint8
 
@@ -201,7 +203,11 @@ func convertFileByType(inFileName string, inFile []byte) (uint16, uint8, []byte,
 				fileType = 0x04
 				auxType = 0x0000
 			case ".JPG", ".PNG":
-				inFile = ConvertImageToHiResMonochrome(inFile)
+				if colour {
+					inFile = ConvertImageToHiResColour(inFile)
+				} else {
+					inFile = ConvertImageToHiResMonochrome(inFile)
+				}
 				fileType = 0x06
 				auxType = 0x2000
 			default:
