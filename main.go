@@ -32,6 +32,7 @@ func main() {
 	var volumeName string
 	var fileType uint
 	var auxType uint
+	var imageFormat string
 	flag.StringVar(&fileName, "d", "", "A ProDOS format drive image")
 	flag.StringVar(&pathName, "p", "", "Path name in ProDOS drive image (default is root of volume)")
 	flag.StringVar(&command, "c", "ls", "Command to execute: ls, create, rm, mkdir, get, getraw, put, putall, putallrecursive, readblock, writeblock")
@@ -42,7 +43,16 @@ func main() {
 	flag.UintVar(&blockNumber, "b", 0, "A block number to read/write from 0 to 65535 (0x0000 to 0xFFFF hex input accepted)")
 	flag.UintVar(&fileType, "t", 0, "ProDOS FileType: 0x04 for TXT, 0x06 for BIN, 0xFC for BAS, 0xFF for SYS etc., omit to autodetect")
 	flag.UintVar(&auxType, "a", 0, "ProDOS AuxType from 0 to 65535 (0x0000 to 0xFFFF hex input accepted), omit to autodetect")
+	flag.StringVar(&imageFormat, "f", "monochrome", "Image import format: monochrome, color or colour")
 	flag.Parse()
+
+	imageFormat = strings.ToLower(imageFormat)
+	if imageFormat != "monochrome" && imageFormat != "color" && imageFormat != "colour" {
+		fmt.Printf("Invalid image format: %s (must be monochrome, color or colour)\n\n", imageFormat)
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
+	colour := imageFormat == "color" || imageFormat == "colour"
 
 	if len(fileName) == 0 {
 		printReadme()
@@ -58,7 +68,7 @@ func main() {
 	case "getraw":
 		getRaw(fileName, pathName)
 	case "put":
-		put(fileName, pathName, uint8(fileType), uint16(auxType), inFileName)
+		put(fileName, pathName, uint8(fileType), uint16(auxType), inFileName, colour)
 	case "readblock":
 		readBlock(uint16(blockNumber), fileName)
 	case "writeblock":
@@ -66,9 +76,9 @@ func main() {
 	case "create":
 		create(fileName, volumeName, uint16(volumeSize))
 	case "putall":
-		putall(fileName, inFileName, pathName, false)
+		putall(fileName, inFileName, pathName, false, colour)
 	case "putallrecursive":
-		putall(fileName, inFileName, pathName, true)
+		putall(fileName, inFileName, pathName, true, colour)
 	case "rm":
 		rm(fileName, pathName)
 	case "mkdir":
@@ -142,7 +152,7 @@ func rm(fileName string, pathName string) {
 	prodos.DeleteFile(file, pathName)
 }
 
-func putall(fileName string, inFileName string, pathName string, recursive bool) {
+func putall(fileName string, inFileName string, pathName string, recursive bool, colour bool) {
 	if len(inFileName) == 0 {
 		inFileName = "."
 	}
@@ -152,7 +162,7 @@ func putall(fileName string, inFileName string, pathName string, recursive bool)
 		os.Exit(1)
 	}
 	defer file.Close()
-	err = prodos.AddFilesFromHostDirectory(file, inFileName, pathName, recursive)
+	err = prodos.AddFilesFromHostDirectory(file, inFileName, pathName, recursive, colour)
 	if err != nil {
 		fmt.Printf("failed to add host files: %s\n", err)
 		os.Exit(1)
@@ -202,7 +212,7 @@ func readBlock(blockNumber uint16, fileName string) {
 	prodos.DumpBlock(block)
 }
 
-func put(fileName string, pathName string, fileType uint8, auxType uint16, inFileName string) {
+func put(fileName string, pathName string, fileType uint8, auxType uint16, inFileName string, colour bool) {
 	checkPathName(pathName)
 	checkInFileName(inFileName)
 	file, err := os.OpenFile(fileName, os.O_RDWR, 0755)
@@ -216,7 +226,7 @@ func put(fileName string, pathName string, fileType uint8, auxType uint16, inFil
 		fmt.Printf("Failed get fileInfo for %s - %s", fileName, err)
 	}
 
-	err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName, nil, false)
+	err = prodos.WriteFileFromFile(file, pathName, fileType, auxType, fileInfo.ModTime(), inFileName, nil, false, colour)
 	if err != nil {
 		fmt.Printf("Failed to write file %s", err)
 	}
